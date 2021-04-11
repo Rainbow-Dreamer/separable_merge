@@ -67,6 +67,92 @@ class Root(Tk):
         self.unzip_path_show.place(x=150, y=450)
         self.msg = ttk.Label(self, text='目前暂时没有动作')
         self.msg.place(x=0, y=550)
+        self.browse_files = ttk.Button(self,
+                                       text='查看可解压的文件列表(选择性解压)',
+                                       command=self.browse_files_func)
+        self.browse_files.place(x=150, y=500)
+
+    def browse_files_func(self):
+        if not self.unzip_file_name:
+            self.msg.configure(text='未选择要解压的文件')
+            return
+        if not self.unzip_msg_name:
+            self.msg.configure(text='未选择解压信息文件')
+            return
+        self.browse_filenames = []
+        self.browse_file_length = []
+        self.browse_file_window = Toplevel(self)
+        self.browse_file_window.minsize(800, 500)
+        self.browse_file_window.title('文件列表')
+        self.browse_file_window.focus_force()
+
+        self.browse_file_list_bar = ttk.Scrollbar(self.browse_file_window,
+                                                  orient="vertical")
+        self.browse_file_list_bar_h = ttk.Scrollbar(self.browse_file_window,
+                                                    orient="horizontal")
+        self.browse_file_list = Listbox(
+            self.browse_file_window,
+            yscrollcommand=self.browse_file_list_bar.set,
+            xscrollcommand=self.browse_file_list_bar_h.set,
+            width=80,
+            height=20)
+        self.browse_file_list_bar.config(command=self.browse_file_list.yview)
+        self.browse_file_list_bar_h.config(command=self.browse_file_list.xview)
+        self.browse_file_list.place(x=0, y=50)
+        self.browse_file_list_bar.place(x=570, y=50, height=360, anchor=N)
+        self.browse_file_list_bar_h.place(x=0, y=420, width=570, anchor=W)
+        self.browse_file_list.bind("<<ListboxSelect>>", self.select_file)
+        self.browse_file_list.config(selectbackground='light green')
+        self.browse_file_list.config(selectforeground='black')
+        self.browse_file_list.config(activestyle='none')
+        self.browse_file_msg = ttk.Label(
+            self.browse_file_window,
+            text='点击选择想要解压的文件，绿色表示选中，在选中的情况下再点击一次取消选中。')
+        self.browse_file_msg.place(x=0, y=20)
+        try:
+            with open(self.unzip_msg_name, 'r', encoding='utf-8') as f:
+                unzip = f.read()
+            unzip_ind, filenames = eval(unzip)
+            if not self.unzip_path:
+                self.unzip_path = 'unzipped_files'
+            try:
+                os.chdir(self.unzip_path)
+            except:
+                os.mkdir(self.unzip_path)
+                os.chdir(self.unzip_path)
+
+            with open(self.unzip_file_name, 'rb') as file:
+                for each in range(len(filenames)):
+                    current_filename = filenames[each]
+                    self.browse_filenames.append(current_filename)
+                    current_length = unzip_ind[each]
+                    self.browse_file_length.append(current_length)
+                    self.browse_file_list.insert(END, current_filename)
+        except:
+            self.msg.configure(text='节点信息文件有误，请重试')
+            os.chdir(original_drc)
+            return
+        os.chdir(original_drc)
+        self.selected_files = [
+            False for i in range(len(self.browse_filenames))
+        ]
+        self.msg.configure(text='成功打开文件列表')
+        self.select_file_unzip = ttk.Button(
+            self.browse_file_window,
+            text='解压选中的文件',
+            command=lambda: self.file_unzip(mode=1))
+        self.select_file_unzip.place(x=600, y=50)
+
+    def select_file(self, e=None):
+        current_ind = self.browse_file_list.index(ANCHOR)
+        if self.selected_files[current_ind]:
+            self.selected_files[current_ind] = False
+            self.browse_file_list.itemconfig(current_ind, {'bg': 'white'})
+            self.browse_file_list.selection_clear(current_ind)
+        else:
+            self.selected_files[current_ind] = True
+            self.browse_file_list.itemconfig(current_ind,
+                                             {'bg': 'light green'})
 
     def clear_files(self):
         self.files.clear()
@@ -101,6 +187,7 @@ class Root(Tk):
         os.chdir(original_drc)
         length_list = []
         with open(mixed_name, 'wb') as file:
+            os.chdir(self.file_path)
             for t in self.filenames:
                 self.msg.configure(text=f'正在合并文件 {t}')
                 self.update()
@@ -108,6 +195,7 @@ class Root(Tk):
                     each = f.read()
                     length_list.append(len(each))
                     file.write(each)
+        os.chdir(original_drc)
         with open('split files.txt', 'w', encoding='utf-8') as f:
             f.write(
                 str(length_list) + ',' +
@@ -157,7 +245,7 @@ class Root(Tk):
                                                   title="选择解压的路径")
         self.unzip_path_show.configure(text=self.unzip_path)
 
-    def file_unzip(self):
+    def file_unzip(self, mode=0):
         if not self.unzip_file_name:
             self.msg.configure(text='未选择要解压的文件')
             return
@@ -174,14 +262,33 @@ class Root(Tk):
         except:
             os.mkdir(self.unzip_path)
             os.chdir(self.unzip_path)
-        with open(self.unzip_file_name, 'rb') as file:
-            for each in range(len(filenames)):
-                current_filename = filenames[each]
+        if mode == 0:
+            with open(self.unzip_file_name, 'rb') as file:
+                for each in range(len(filenames)):
+                    current_filename = filenames[each]
+                    self.msg.configure(text=f'正在解压文件 {current_filename}')
+                    self.update()
+                    current_length = unzip_ind[each]
+                    with open(current_filename, 'wb') as f:
+                        f.write(file.read(current_length))
+        else:
+            select_file_ind = [
+                i for i in range(len(self.selected_files))
+                if self.selected_files[i]
+            ]
+            select_file_range = [(sum(unzip_ind[:i]), sum(unzip_ind[:i + 1]))
+                                 for i in select_file_ind]
+            with open(self.unzip_file_name, 'rb') as file:
+                whole_file = file.read()
+            for each in range(len(select_file_ind)):
+                current_ind = select_file_ind[each]
+                current_filename = filenames[current_ind]
+                current_select_file_range = select_file_range[each]
                 self.msg.configure(text=f'正在解压文件 {current_filename}')
                 self.update()
-                current_length = unzip_ind[each]
                 with open(current_filename, 'wb') as f:
-                    f.write(file.read(current_length))
+                    f.write(whole_file[current_select_file_range[0]:
+                                       current_select_file_range[1]])
         self.msg.configure(text=f'文件解压成功，请到解压路径下查看')
         os.chdir(original_drc)
 
