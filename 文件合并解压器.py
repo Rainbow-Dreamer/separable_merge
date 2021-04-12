@@ -55,7 +55,7 @@ class Root(Tk):
         self.start_unzip.place(x=0, y=500)
         self.files = []
         self.filenames = []
-        self.file_path = ''
+        self.file_path = '.'
         self.unzip_file_name = ''
         self.unzip_file_name_show = ttk.Label(self, text='')
         self.unzip_file_name_show.place(x=125, y=350)
