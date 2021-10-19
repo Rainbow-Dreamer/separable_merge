@@ -3,12 +3,13 @@
     '文件切块运行程序.pyw', '文件合并解压器.exe', '文件合并解压器运行程序.pyw'
 ]
 original_drc = os.getcwd()
+read_unit = 1024 * 16
 
 
 class Root(Tk):
     def __init__(self):
         super(Root, self).__init__()
-        self.minsize(700, 600)
+        self.minsize(750, 600)
         self.filedialog = filedialog
         self.title('任意文件合并解压器')
         self.choose_files = ttk.Button(self,
@@ -186,15 +187,31 @@ class Root(Tk):
             mixed_name = 'mixed.jpg'
         os.chdir(original_drc)
         length_list = []
-        with open(mixed_name, 'wb') as file:
-            os.chdir(self.file_path)
-            for t in self.filenames:
-                self.msg.configure(text=f'正在合并文件 {t}')
-                self.update()
-                with open(t, 'rb') as f:
-                    each = f.read()
-                    length_list.append(len(each))
-                    file.write(each)
+        file = open(mixed_name, 'wb')
+        os.chdir(self.file_path)
+        for t in self.filenames:
+            self.msg.configure(text=f'正在合并文件 {t}')
+            self.update()
+            current_file_size = os.path.getsize(t)
+            length_list.append(current_file_size)
+            file_size_counter = 0
+            f = open(t, 'rb')
+            while True:
+                current_chunk = f.read(read_unit)
+                if current_chunk:
+                    file.write(current_chunk)
+                    file_size_counter += len(current_chunk)
+                    self.msg.configure(
+                        text=
+                        f'writing {round((file_size_counter/current_file_size)*100, 3)}% of {t}'
+                    )
+                    self.msg.update()
+                else:
+                    self.msg.configure(text=f'finished writing {t}')
+                    self.msg.update()
+                    break
+            f.close()
+        file.close()
         os.chdir(original_drc)
         with open('split files.txt', 'w', encoding='utf-8') as f:
             f.write(
@@ -269,8 +286,24 @@ class Root(Tk):
                     self.msg.configure(text=f'正在解压文件 {current_filename}')
                     self.update()
                     current_length = unzip_ind[each]
+                    read_times, remain_size = divmod(current_length, read_unit)
+                    write_counter = 0
                     with open(current_filename, 'wb') as f:
-                        f.write(file.read(current_length))
+                        for k in range(read_times):
+                            f.write(file.read(read_unit))
+                            write_counter += read_unit
+                            self.msg.configure(
+                                text=
+                                f'writing {round((write_counter/current_length)*100, 3)}% of {current_filename}'
+                            )
+                            self.msg.update()
+                        f.write(file.read(remain_size))
+                        write_counter += remain_size
+                        self.msg.configure(
+                            text=
+                            f'writing {round((write_counter/current_length)*100, 3)}% of {current_filename}'
+                        )
+                        self.msg.update()
         else:
             select_file_ind = [
                 i for i in range(len(self.selected_files))
