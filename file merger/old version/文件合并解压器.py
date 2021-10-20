@@ -72,6 +72,41 @@ class Root(Tk):
                                        text='查看可解压的文件列表(选择性解压)',
                                        command=self.browse_files_func)
         self.browse_files.place(x=150, y=500)
+        self.save_task_button = ttk.Button(self,
+                                           text='保存当前任务',
+                                           command=self.save_task)
+        self.save_task_button.place(x=500, y=450)
+        self.save_task_button = ttk.Button(self,
+                                           text='导入任务',
+                                           command=self.import_task)
+        self.save_task_button.place(x=500, y=500)
+
+    def save_task(self):
+        file_path = filedialog.asksaveasfile(initialdir='.',
+                                             title="保存当前任务",
+                                             filetype=(("所有文件", "*.*"), ),
+                                             initialfile='Untitled.fmt')
+        if file_path:
+            with open(file_path.name, 'w') as f:
+                f.write(str(self.filenames))
+        self.msg.configure(text=f'成功保存任务文件 {file_path.name}')
+        self.msg.update()
+
+    def import_task(self):
+        task_file_name = filedialog.askopenfilename(initialdir='.',
+                                                    title="选择任务文件",
+                                                    filetype=(("fmt文件",
+                                                               "*.fmt"),
+                                                              ("所有文件", "*.*")))
+        if task_file_name:
+            with open(task_file_name) as f:
+                self.filenames = literal_eval(f.read())
+            self.choose_files_show.configure(state='normal')
+            self.choose_files_show.delete('1.0', END)
+            self.choose_files_show.insert(END, '\n'.join(self.filenames))
+            self.choose_files_show.configure(state='disabled')
+            self.msg.configure(text=f'成功导入任务文件 {task_file_name}')
+            self.msg.update()
 
     def browse_files_func(self):
         if not self.unzip_file_name:
