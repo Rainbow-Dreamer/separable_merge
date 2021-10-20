@@ -280,11 +280,7 @@ class Root(Tk):
             initialdir='.', title="Choose the directory to unzip to")
         if not unzip_path:
             return
-        try:
-            os.chdir(unzip_path)
-        except:
-            os.mkdir(unzip_path)
-            os.chdir(unzip_path)
+        os.chdir(unzip_path)
         with open(self.unzip_file_name, 'rb') as file:
             current_dict = pickle.load(file)
             current_dict_size = file.tell()
