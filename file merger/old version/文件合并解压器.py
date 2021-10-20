@@ -242,10 +242,12 @@ class Root(Tk):
                     )
                     self.msg.update()
                 else:
-                    self.msg.configure(text=f'finished writing {t}')
-                    self.msg.update()
                     break
             f.close()
+            file.flush()
+            os.fsync(file.fileno())
+            self.msg.configure(text=f'finished writing {t}')
+            self.msg.update()
         file.close()
         os.chdir(original_drc)
         with open('split files.txt', 'w', encoding='utf-8') as f:
@@ -347,16 +349,33 @@ class Root(Tk):
             select_file_range = [(sum(unzip_ind[:i]), sum(unzip_ind[:i + 1]))
                                  for i in select_file_ind]
             with open(self.unzip_file_name, 'rb') as file:
-                whole_file = file.read()
-            for each in range(len(select_file_ind)):
-                current_ind = select_file_ind[each]
-                current_filename = filenames[current_ind]
-                current_select_file_range = select_file_range[each]
-                self.msg.configure(text=f'正在解压文件 {current_filename}')
-                self.update()
-                with open(current_filename, 'wb') as f:
-                    f.write(whole_file[current_select_file_range[0]:
-                                       current_select_file_range[1]])
+                for each in range(len(select_file_ind)):
+                    current_ind = select_file_ind[each]
+                    current_filename = filenames[current_ind]
+                    current_select_file_range = select_file_range[each]
+                    file.seek(current_select_file_range[0])
+                    self.msg.configure(text=f'正在解压文件 {current_filename}')
+                    self.update()
+                    current_length = current_select_file_range[
+                        1] - current_select_file_range[0]
+                    read_times, remain_size = divmod(current_length, read_unit)
+                    write_counter = 0
+                    with open(current_filename, 'wb') as f:
+                        for k in range(read_times):
+                            f.write(file.read(read_unit))
+                            write_counter += read_unit
+                            self.msg.configure(
+                                text=
+                                f'writing {round((write_counter/current_length)*100, 3)}% of {current_filename}'
+                            )
+                            self.msg.update()
+                        f.write(file.read(remain_size))
+                        write_counter += remain_size
+                        self.msg.configure(
+                            text=
+                            f'writing {round((write_counter/current_length)*100, 3)}% of {current_filename}'
+                        )
+                        self.msg.update()
         self.msg.configure(text=f'文件解压成功，请到解压路径下查看')
         os.chdir(original_drc)
 

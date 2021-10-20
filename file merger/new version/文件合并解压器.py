@@ -4,12 +4,7 @@
 ]
 original_drc = os.getcwd()
 
-
-class merge_object:
-    def __init__(self, file, file_names, file_sizes):
-        self.file = file
-        self.file_names = file_names
-        self.file_sizes = file_sizes
+read_unit = 1024 * 16
 
 
 class Root(Tk):
@@ -72,6 +67,41 @@ class Root(Tk):
                                        text='查看可解压的文件列表(选择性解压)',
                                        command=self.browse_files_func)
         self.browse_files.place(x=150, y=450)
+        self.save_task_button = ttk.Button(self,
+                                           text='保存当前任务',
+                                           command=self.save_task)
+        self.save_task_button.place(x=500, y=450)
+        self.save_task_button = ttk.Button(self,
+                                           text='导入任务',
+                                           command=self.import_task)
+        self.save_task_button.place(x=500, y=500)
+
+    def save_task(self):
+        file_path = filedialog.asksaveasfile(initialdir='.',
+                                             title="保存当前任务",
+                                             filetype=(("所有文件", "*.*"), ),
+                                             initialfile='Untitled.fmt')
+        if file_path:
+            with open(file_path.name, 'w') as f:
+                f.write(str(self.filenames))
+        self.msg.configure(text=f'成功保存任务文件 {file_path.name}')
+        self.msg.update()
+
+    def import_task(self):
+        task_file_name = filedialog.askopenfilename(initialdir='.',
+                                                    title="选择任务文件",
+                                                    filetype=(("fmt文件",
+                                                               "*.fmt"),
+                                                              ("所有文件", "*.*")))
+        if task_file_name:
+            with open(task_file_name) as f:
+                self.filenames = literal_eval(f.read())
+            self.choose_files_show.configure(state='normal')
+            self.choose_files_show.delete('1.0', END)
+            self.choose_files_show.insert(END, '\n'.join(self.filenames))
+            self.choose_files_show.configure(state='disabled')
+            self.msg.configure(text=f'成功导入任务文件 {task_file_name}')
+            self.msg.update()
 
     def browse_files_func(self):
         if not self.unzip_file_name:
@@ -115,8 +145,8 @@ class Root(Tk):
             os.chdir(self.unzip_path)
 
         with open(self.unzip_file_name, 'rb') as file:
-            current_file = pickle.load(file)
-            filenames = current_file.file_names
+            current_dict = pickle.load(file)
+            filenames = list(current_dict.keys())
             for each in range(len(filenames)):
                 current_filename = filenames[each]
                 self.browse_filenames.append(current_filename)
@@ -170,32 +200,46 @@ class Root(Tk):
         if not self.filenames:
             self.msg.configure(text='合并文件列表为空')
             return
-        files = self.files
         mixed_name = self.mix_file_name.get('1.0', 'end-1c')
         if not mixed_name:
             mixed_name = 'mixed'
         os.chdir(original_drc)
-        length_list = []
-        mixed_file = b''
+        length_list = [os.path.getsize(each) for each in self.filenames]
         os.chdir(self.file_path)
-        file_num = len(self.filenames)
         counter = 1
-        for t in self.filenames:
-            self.msg.configure(text=f'{counter}/{file_num} 正在合并文件 {t}')
-            self.update()
-            with open(t, 'rb') as f:
-                each = f.read()
-                length_list.append(len(each))
-                mixed_file += each
-            counter += 1
+        file_num = len(self.filenames)
+        file_names = [os.path.basename(i) for i in self.filenames]
+        merge_dict = {
+            file_names[i]: length_list[i]
+            for i in range(len(file_names))
+        }
+        with open(mixed_name, 'wb') as file:
+            file.write(pickle.dumps(merge_dict))
+            for t in self.filenames:
+                self.msg.configure(text=f'{counter}/{file_num} 正在合并文件 {t}')
+                self.update()
+                current_file_size = os.path.getsize(t)
+                file_size_counter = 0
+                f = open(t, 'rb')
+                while True:
+                    current_chunk = f.read(read_unit)
+                    if current_chunk:
+                        file.write(current_chunk)
+                        file_size_counter += len(current_chunk)
+                        self.msg.configure(
+                            text=
+                            f'writing {round((file_size_counter/current_file_size)*100, 3)}% of {t}'
+                        )
+                        self.msg.update()
+                    else:
+                        break
+                f.close()
+                file.flush()
+                os.fsync(file.fileno())
+                self.msg.configure(text=f'finished writing {t}')
+                self.msg.update()
+                counter += 1
         os.chdir(original_drc)
-        current_merge_file = merge_object(
-            mixed_file, [os.path.basename(i) for i in self.filenames],
-            length_list)
-        self.msg.configure(text='合并成功，正在写入合并后的文件，请稍等')
-        self.update()
-        with open(mixed_name, 'wb') as f:
-            pickle.dump(current_merge_file, f)
         self.msg.configure(text=f'文件合并成功，请看当前路径下的{mixed_name}')
 
     def filemix2(self):
@@ -236,6 +280,7 @@ class Root(Tk):
     def file_unzip(self, mode=0):
         if not self.unzip_file_name:
             self.msg.configure(text='未选择要解压的文件')
+            self.update()
             return
         if not self.unzip_path:
             self.unzip_path = 'unzipped_files'
@@ -245,41 +290,75 @@ class Root(Tk):
             os.mkdir(self.unzip_path)
             os.chdir(self.unzip_path)
         with open(self.unzip_file_name, 'rb') as file:
-            current_file = pickle.load(file)
-        unzip_ind = current_file.file_sizes
-        filenames = current_file.file_names
-        if mode == 0:
-            counter = 0
-            length = len(current_file.file_names)
-            for each in range(length):
-                current_filename = current_file.file_names[each]
-                current_length = current_file.file_sizes[each]
-                self.msg.configure(
-                    text=f'{each+1}/{length} 正在解压文件 {current_filename}')
-                self.update()
-                with open(current_filename, 'wb') as f:
-                    f.write(current_file.file[counter:counter +
-                                              current_length])
-                counter += current_length
-        else:
-
-            select_file_ind = [
-                i for i in range(len(self.selected_files))
-                if self.selected_files[i]
-            ]
-            select_file_range = [(sum(unzip_ind[:i]), sum(unzip_ind[:i + 1]))
-                                 for i in select_file_ind]
-            length = len(select_file_ind)
-            for each in range(length):
-                current_ind = select_file_ind[each]
-                current_filename = filenames[current_ind]
-                current_select_file_range = select_file_range[each]
-                self.msg.configure(
-                    text=f'{each+1}/{length} 正在解压文件 {current_filename}')
-                self.update()
-                with open(current_filename, 'wb') as f:
-                    f.write(current_file.file[current_select_file_range[0]:
-                                              current_select_file_range[1]])
+            current_dict = pickle.load(file)
+            current_dict_size = file.tell()
+            unzip_ind = list(current_dict.values())
+            filenames = list(current_dict.keys())
+            if mode == 0:
+                length = len(filenames)
+                for each in range(length):
+                    current_filename = filenames[each]
+                    current_file_size = unzip_ind[each]
+                    self.msg.configure(
+                        text=f'{each+1}/{length} 正在解压文件 {current_filename}')
+                    self.update()
+                    read_times, remain_size = divmod(current_file_size,
+                                                     read_unit)
+                    write_counter = 0
+                    with open(current_filename, 'wb') as f:
+                        for k in range(read_times):
+                            f.write(file.read(read_unit))
+                            write_counter += read_unit
+                            self.msg.configure(
+                                text=
+                                f'writing {round((write_counter/current_file_size)*100, 3)}% of {current_filename}'
+                            )
+                            self.msg.update()
+                        f.write(file.read(remain_size))
+                        write_counter += remain_size
+                        self.msg.configure(
+                            text=
+                            f'writing {round((write_counter/current_file_size)*100, 3)}% of {current_filename}'
+                        )
+                        self.msg.update()
+            else:
+                select_file_ind = [
+                    i for i in range(len(self.selected_files))
+                    if self.selected_files[i]
+                ]
+                select_file_range = [(sum(unzip_ind[:i]),
+                                      sum(unzip_ind[:i + 1]))
+                                     for i in select_file_ind]
+                length = len(select_file_ind)
+                file_length = len(filenames)
+                for each in range(length):
+                    current_ind = select_file_ind[each]
+                    current_filename = filenames[current_ind]
+                    current_file_size = unzip_ind[current_ind]
+                    current_select_file_range = select_file_range[each]
+                    self.msg.configure(
+                        text=f'{each+1}/{length} 正在解压文件 {current_filename}')
+                    self.update()
+                    file.seek(current_select_file_range[0] + current_dict_size)
+                    read_times, remain_size = divmod(current_file_size,
+                                                     read_unit)
+                    write_counter = 0
+                    with open(current_filename, 'wb') as f:
+                        for k in range(read_times):
+                            f.write(file.read(read_unit))
+                            write_counter += read_unit
+                            self.msg.configure(
+                                text=
+                                f'writing {round((write_counter/current_file_size)*100, 3)}% of {current_filename}'
+                            )
+                            self.msg.update()
+                        f.write(file.read(remain_size))
+                        write_counter += remain_size
+                        self.msg.configure(
+                            text=
+                            f'writing {round((write_counter/current_file_size)*100, 3)}% of {current_filename}'
+                        )
+                        self.msg.update()
         self.msg.configure(text=f'文件解压成功，请到解压路径下查看')
         os.chdir(original_drc)
 
