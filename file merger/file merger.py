@@ -76,6 +76,12 @@ class Root(Tk):
                                            text='Import task',
                                            command=self.import_task)
         self.save_task_button.place(x=500, y=500)
+        self.is_direct_merge = IntVar()
+        self.is_direct_merge.set(0)
+        self.direct_merge_button = Checkbutton(self,
+                                               text='direct merge',
+                                               variable=self.is_direct_merge)
+        self.direct_merge_button.place(x=570, y=20)
 
     def save_task(self):
         file_path = filedialog.asksaveasfile(initialdir='.',
@@ -211,12 +217,14 @@ class Root(Tk):
         counter = 1
         file_num = len(self.filenames)
         file_names = [os.path.basename(i) for i in self.filenames]
-        merge_dict = {
-            file_names[i]: length_list[i]
-            for i in range(len(file_names))
-        }
+        if not self.is_direct_merge.get():
+            merge_dict = {
+                file_names[i]: length_list[i]
+                for i in range(len(file_names))
+            }
         with open(mixed_name, 'wb') as file:
-            file.write(pickle.dumps(merge_dict))
+            if not self.is_direct_merge.get():
+                file.write(pickle.dumps(merge_dict))
             for t in self.filenames:
                 current_file_size = os.path.getsize(t)
                 file_size_counter = 0
