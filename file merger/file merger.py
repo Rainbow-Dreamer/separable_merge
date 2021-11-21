@@ -83,7 +83,10 @@ class Root(Tk):
     def __init__(self):
         super(Root, self).__init__()
         self.minsize(850, 600)
-        self.filedialog = filedialog
+        try:
+            self.wm_iconbitmap('resources/icon.ico')
+        except:
+            pass
         self.title('File Merger and Splitter')
         self.choose_files = ttk.Button(self,
                                        text='Add files',
@@ -229,6 +232,10 @@ class Root(Tk):
             return
         self.browse_filenames = []
         self.browse_file_window = Toplevel(self)
+        try:
+            self.browse_file_window.wm_iconbitmap('resources/icon.ico')
+        except:
+            pass
         self.browse_file_window.minsize(850, 500)
         self.browse_file_window.title('File list')
         self.browse_file_window.focus_force()
