@@ -127,7 +127,6 @@ class Root(Tk):
         self.start_unzip.place(x=0, y=350)
         self.filenames = []
         self.actual_filenames = []
-        self.file_path = '.'
         self.unzip_file_name = ''
         self.unzip_file_name_show = ttk.Label(self, text='')
         self.unzip_file_name_show.place(x=210, y=300)
@@ -142,10 +141,10 @@ class Root(Tk):
                                            text='Save current task',
                                            command=self.save_task)
         self.save_task_button.place(x=500, y=350)
-        self.save_task_button = ttk.Button(self,
-                                           text='Import task',
-                                           command=self.import_task)
-        self.save_task_button.place(x=500, y=400)
+        self.import_task_button = ttk.Button(self,
+                                             text='Import task',
+                                             command=self.import_task)
+        self.import_task_button.place(x=500, y=400)
         self.is_direct_merge = IntVar()
         self.is_direct_merge.set(0)
         self.direct_merge_button = Checkbutton(self,
@@ -155,7 +154,7 @@ class Root(Tk):
         self.merge_dict = {}
 
     def save_task(self):
-        file_path = filedialog.asksaveasfile(initialdir='.',
+        file_path = filedialog.asksaveasfile(initialdir=original_drc,
                                              title="Save current task",
                                              filetype=(("All files", "*.*"), ),
                                              initialfile='Untitled.fmt')
@@ -169,7 +168,7 @@ class Root(Tk):
     def import_task(self, task_file_name=None):
         if not task_file_name:
             task_file_name = filedialog.askopenfilename(
-                initialdir='.',
+                initialdir=original_drc,
                 title="Choose task file",
                 filetype=(("fmt file", "*.fmt"), ("All files", "*.*")))
         if task_file_name:
@@ -291,7 +290,7 @@ class Root(Tk):
 
     def choose_mix_files(self, mode=0):
         if mode == 0:
-            filenames = filedialog.askopenfilenames(initialdir='.',
+            filenames = filedialog.askopenfilenames(initialdir=original_drc,
                                                     title="Choose files",
                                                     filetype=(("All files",
                                                                "*.*"), ))
@@ -307,7 +306,7 @@ class Root(Tk):
                 self.choose_files_show.insert(END, '\n'.join(filenames) + '\n')
                 self.choose_files_show.configure(state='disabled')
         else:
-            dirnames = tkfilebrowser.askopendirnames(initialdir='.',
+            dirnames = tkfilebrowser.askopendirnames(initialdir=original_drc,
                                                      title="Choose folders")
             if dirnames:
                 for each in dirnames:
@@ -322,17 +321,11 @@ class Root(Tk):
                 self.choose_files_show.insert(END, '\n'.join(dirnames) + '\n')
                 self.choose_files_show.configure(state='disabled')
 
-    def choose_mix_files_path(self):
-        self.file_path = filedialog.askdirectory(initialdir='.',
-                                                 title="Choose directory")
-        self.choose_path_show.delete('1.0', END)
-        self.choose_path_show.insert(END, self.file_path)
-
     def filemix(self):
         if not self.filenames:
             self.msg.configure(text='The merge file list is empty')
             return
-        mixed_name = filedialog.asksaveasfile(initialdir='.',
+        mixed_name = filedialog.asksaveasfile(initialdir=original_drc,
                                               title="Save merged file",
                                               defaultextension='.fm',
                                               filetype=(("All files",
@@ -372,7 +365,7 @@ class Root(Tk):
 
     def choose_unzip_file_name(self):
         self.unzip_file_name = filedialog.askopenfilename(
-            initialdir='.',
+            initialdir=original_drc,
             title="Choose files",
             filetype=(("All files", "*.*"), ))
         self.unzip_file_name_show.configure(text=self.unzip_file_name)
@@ -383,7 +376,7 @@ class Root(Tk):
             self.update()
             return
         unzip_path = filedialog.askdirectory(
-            initialdir='.', title="Choose the directory to unzip to")
+            initialdir=original_drc, title="Choose the directory to unzip to")
         if not unzip_path:
             return
         os.chdir(unzip_path)
@@ -482,6 +475,7 @@ if __name__ == '__main__':
     argv = sys.argv
     if len(argv) > 1:
         current_file = argv[1]
+        original_drc = os.path.dirname(current_file)
         if os.path.splitext(current_file)[1][1:].lower() == 'fmt':
             root.import_task(current_file)
         else:
