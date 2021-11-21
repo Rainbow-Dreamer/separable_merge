@@ -189,7 +189,7 @@ class Root(Tk):
                                              header,
                                              get_size=True)
                     self.merge_dict.update(current_dict)
-                else:
+                elif os.path.isfile(each):
                     self.filenames.append(each)
                     self.merge_dict[os.path.basename(each)] = os.path.getsize(
                         each)
