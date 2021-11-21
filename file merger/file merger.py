@@ -123,28 +123,28 @@ class Root(Tk):
         self.start_unzip = ttk.Button(self,
                                       text='Start unzipping',
                                       command=self.file_unzip)
-        self.choose_unzip_file.place(x=0, y=300)
-        self.start_unzip.place(x=0, y=350)
+        self.choose_unzip_file.place(x=0, y=330)
+        self.start_unzip.place(x=0, y=400)
         self.filenames = []
         self.actual_filenames = []
         self.unzip_file_name = ''
         self.unzip_file_name_show = ttk.Label(self, text='')
-        self.unzip_file_name_show.place(x=210, y=300)
+        self.unzip_file_name_show.place(x=210, y=350)
         self.msg = ttk.Label(self, text='Currently no actions')
         self.msg.place(x=0, y=550)
         self.browse_files = ttk.Button(
             self,
             text='Browse unzippable files (selective unzipping)',
             command=self.browse_files_func)
-        self.browse_files.place(x=150, y=350)
+        self.browse_files.place(x=150, y=400)
         self.save_task_button = ttk.Button(self,
                                            text='Save current task',
                                            command=self.save_task)
-        self.save_task_button.place(x=500, y=350)
+        self.save_task_button.place(x=500, y=400)
         self.import_task_button = ttk.Button(self,
                                              text='Import task',
                                              command=self.import_task)
-        self.import_task_button.place(x=500, y=400)
+        self.import_task_button.place(x=500, y=450)
         self.is_direct_merge = IntVar()
         self.is_direct_merge.set(0)
         self.direct_merge_button = Checkbutton(self,
