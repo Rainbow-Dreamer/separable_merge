@@ -5,6 +5,8 @@ import os
 
 original_drc = os.getcwd()
 
+read_unit = 1024 * 16
+
 
 class Root(Tk):
     def __init__(self):
@@ -12,7 +14,10 @@ class Root(Tk):
         self.split_file = None
         self.split_file_name = ''
         self.minsize(700, 400)
-        self.filedialog = filedialog
+        try:
+            self.wm_iconbitmap('resources/icon.ico')
+        except:
+            pass
         self.title('File splitter')
         self.choose_files = ttk.Button(
             self,
@@ -120,6 +125,27 @@ class Root(Tk):
         self.choose_files_size_show.delete('1.0', END)
         self.choose_files_size_show.insert(END, self.split_file_size)
 
+    def file_split_by_chunks(self, file, f, split_size, i, length):
+        read_times, remain_size = divmod(split_size, read_unit)
+        write_counter = 0
+        for k in range(read_times):
+            f.write(file.read(read_unit))
+            write_counter += read_unit
+            if split_size:
+                self.msg.configure(
+                    text=
+                    f'Currently writing portion {i+1}/{length} {round((write_counter/split_size)*100, 3)}%'
+                )
+                self.msg.update()
+        f.write(file.read(remain_size))
+        write_counter += remain_size
+        if split_size:
+            self.msg.configure(
+                text=
+                f'Currently writing portion {i+1}/{length} {round((write_counter/split_size)*100, 3)}%'
+            )
+            self.msg.update()
+
     def file_split(self, mode=0):
         if not self.split_file_name:
             self.msg.configure(text='No files are selected')
@@ -143,22 +169,20 @@ class Root(Tk):
                 return
             length = self.split_file_size_num
             split_size = length // split_into_num
-            check_files = os.listdir()
-            if check_files:
-                for each in check_files:
-                    os.remove(each)
             counter = 0
             with open(self.split_file_name, 'rb') as file:
+                split_file_name = os.path.split(self.split_file_name)[1]
                 for i in range(split_into_num):
-                    self.msg.configure(text=f'Currently writing portion {i+1}')
-                    self.update()
                     if i != split_into_num - 1:
-                        with open(f'part{i+1}', 'wb') as f:
-                            f.write(bytes(file.read(split_size)))
+                        with open(f'{split_file_name} part{i+1}', 'wb') as f:
+                            self.file_split_by_chunks(file, f, split_size, i,
+                                                      split_into_num)
                         counter += split_size
                     else:
-                        with open(f'part{i+1}', 'wb') as f:
-                            f.write(bytes(file.read(length - counter)))
+                        with open(f'{split_file_name} part{i+1}', 'wb') as f:
+                            self.file_split_by_chunks(file, f,
+                                                      length - counter, i,
+                                                      split_into_num)
         elif mode == 1:
             fixed_size = self.fixed_split_size_text.get('1.0',
                                                         'end-1c').split()
@@ -181,24 +205,24 @@ class Root(Tk):
                 return
             length = self.split_file_size_num
             split_size = int(fixed_size_num)
-            check_files = os.listdir()
-            if check_files:
-                for each in check_files:
-                    os.remove(each)
             counter = 0
-            part_num = 1
+            part_num = 0
+            split_into_num = -(-length // split_size)
             with open(self.split_file_name, 'rb') as file:
+                split_file_name = os.path.split(self.split_file_name)[1]
                 while True:
-                    self.msg.configure(
-                        text=f'Currently writing portion {part_num}')
-                    self.update()
                     if counter + split_size >= length:
-                        with open(f'part{part_num}', 'wb') as f:
-                            f.write(bytes(file.read(length - counter)))
+                        with open(f'{split_file_name} part{part_num+1}',
+                                  'wb') as f:
+                            self.file_split_by_chunks(file, f,
+                                                      length - counter,
+                                                      part_num, split_into_num)
                         break
                     else:
-                        with open(f'part{part_num}', 'wb') as f:
-                            f.write(bytes(file.read(split_size)))
+                        with open(f'{split_file_name} part{part_num+1}',
+                                  'wb') as f:
+                            self.file_split_by_chunks(file, f, split_size,
+                                                      part_num, split_into_num)
                         counter += split_size
                         part_num += 1
         self.msg.configure(
