@@ -129,7 +129,7 @@ class Root(Tk):
         self.actual_filenames = []
         self.unzip_file_name = ''
         self.unzip_file_name_show = ttk.Label(self, text='')
-        self.unzip_file_name_show.place(x=210, y=350)
+        self.unzip_file_name_show.place(x=210, y=335)
         self.msg = ttk.Label(self, text='Currently no actions')
         self.msg.place(x=0, y=550)
         self.browse_files = ttk.Button(
@@ -368,7 +368,8 @@ class Root(Tk):
             initialdir=original_drc,
             title="Choose files",
             filetype=(("All files", "*.*"), ))
-        self.unzip_file_name_show.configure(text=self.unzip_file_name)
+        if self.unzip_file_name:
+            self.unzip_file_name_show.configure(text=self.unzip_file_name)
 
     def file_unzip(self, mode=0):
         if not self.unzip_file_name:
