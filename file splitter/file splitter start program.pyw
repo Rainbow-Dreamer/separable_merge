@@ -7,5 +7,5 @@ import sys
 abs_path = os.path.dirname(os.path.abspath(__file__))
 os.chdir(abs_path)
 sys.path.append(abs_path)
-with open('file splitter.py', encoding='utf-8-sig') as f:
+with open('packages/file splitter.py', encoding='utf-8-sig') as f:
     exec(f.read())
