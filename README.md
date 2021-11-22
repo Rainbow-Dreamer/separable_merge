@@ -1,6 +1,6 @@
 # separable_merge
 
-<img src="previews/icon.png" alt="image" style="zoom:50%;" />
+<img src="previews/icon.png" alt="image" style="zoom: 33%;" />
 
 This is a file merger and splitter which uses an algorithm designed by me to merge multiple files and split files. This file merging algorithm, which I call it `separable merge`, could merge multiple files into a single binary file, which could be split into the original files later. The splitting information stored as the header of the merged file. This algorithm could store not only files, but also folders into a single binary file. The folders could be nested, and all of the file locations with folders will be stored in the splitting information. The type of file that this algorithm generates could be a merged file standard on its own, I think we can call it `fm`, which stands for `file merge`.
 
