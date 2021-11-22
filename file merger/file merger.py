@@ -5,7 +5,7 @@ read_unit = 1024 * 16
 
 def parse_dir(dirname, header, mode=0, get_size=False):
     if mode == 1:
-        dirname = dirname.lstrip(header)
+        dirname = dirname[len(header) + 1:]
     current_files = os.listdir(os.path.join(header, dirname))
     for i, j in enumerate(current_files):
         current_real_path = os.path.join(header, dirname, j)
