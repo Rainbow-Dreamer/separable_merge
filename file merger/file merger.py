@@ -441,8 +441,6 @@ class Root(Tk):
                     current_ind = select_file_ind[each]
                     current_filename = filenames[current_ind]
                     current_file_size = unzip_ind[current_ind]
-                    if not current_file_size:
-                        current_file_size = 1
                     current_select_file_range = select_file_range[each]
                     file.seek(current_select_file_range[0] + current_dict_size)
                     read_times, remain_size = divmod(current_file_size,
@@ -452,18 +450,20 @@ class Root(Tk):
                         for k in range(read_times):
                             f.write(file.read(read_unit))
                             write_counter += read_unit
+                            if current_file_size:
+                                self.msg.configure(
+                                    text=
+                                    f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3)}% of file {current_filename}'
+                                )
+                                self.msg.update()
+                        f.write(file.read(remain_size))
+                        write_counter += remain_size
+                        if current_file_size:
                             self.msg.configure(
                                 text=
                                 f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3)}% of file {current_filename}'
                             )
                             self.msg.update()
-                        f.write(file.read(remain_size))
-                        write_counter += remain_size
-                        self.msg.configure(
-                            text=
-                            f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3)}% of file {current_filename}'
-                        )
-                        self.msg.update()
         self.msg.configure(
             text=
             f'Successfully unzip the files, please look at the directory {unzip_path}'
