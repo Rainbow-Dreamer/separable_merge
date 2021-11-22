@@ -6,7 +6,7 @@ This is a file merger and splitter which uses an algorithm designed by me to mer
 
 This file merging and splitting algorithm supports all file types, and is cross-platform since its design is based on basic python data structures, it will work fine on all of Windows, Linux and macOS. 
 
-Currently I already implement an file merger and splitter executable which works on Windows, the python script which compiles into the executable should also works on Linux and macOS with python >= 3.7 installed (`pip install tkfilebrowser` is needed for the merger).
+Currently I already implement a file merger and splitter executable which works on Windows, the python script which compiles into the executable should also works on Linux and macOS with python >= 3.7 installed (`pip install tkfilebrowser` is needed for the merger).
 
 There is also a file splitter in this repository, which is simply a program that could cut a file into several parts, you can choose to cut in a number of parts evenly or cut in a fixed file size.
 
