@@ -20,8 +20,8 @@ Here are the shortcuts of the file merger and splitter.
 
 ![image](previews/1.jpg)
 
-                                                     main window
+                                          main window
 
 ![image](previews/2.jpg)
 
-                                                     browse file list in a fm file
+                                  browse file list in a fm file
