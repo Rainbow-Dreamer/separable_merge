@@ -3,17 +3,21 @@
 read_unit = 1024 * 16
 
 
+def normal_path(path):
+    return path.replace('\\', '/')
+
+
 def parse_dir(dirname, header, mode=0, get_size=False):
     if mode == 1:
         dirname = dirname[len(header) + 1:]
     current_files = os.listdir(os.path.join(header, dirname))
     for i, j in enumerate(current_files):
-        current_real_path = os.path.join(header, dirname, j)
+        current_real_path = normal_path(os.path.join(header, dirname, j))
         if os.path.isdir(current_real_path):
             current_files[i] = parse_dir(current_real_path, header, 1,
                                          get_size)
         else:
-            current_file_name = os.path.join(dirname, j)
+            current_file_name = normal_path(os.path.join(dirname, j))
             current_files[i] = {
                 current_file_name: os.path.getsize(current_real_path)
             } if get_size else current_file_name
@@ -24,7 +28,7 @@ def get_all_files_in_dir(dirname):
     result = []
     current_files = os.listdir(dirname)
     for i, j in enumerate(current_files):
-        current_real_path = os.path.join(dirname, j)
+        current_real_path = normal_path(os.path.join(dirname, j))
         if os.path.isfile(current_real_path):
             result.append(current_real_path)
         else:
@@ -316,6 +320,7 @@ class Root(Tk):
                                              header,
                                              get_size=True)
                     self.merge_dict.update(current_dict)
+                dirnames = [normal_path(i) for i in dirnames]
                 self.actual_filenames += dirnames
                 self.choose_files_show.configure(state='normal')
                 self.choose_files_show.insert(END, '\n'.join(dirnames) + '\n')
