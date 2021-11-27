@@ -160,7 +160,8 @@ class Root(Tk):
     def save_task(self):
         file_path = filedialog.asksaveasfile(initialdir=original_drc,
                                              title="Save current task",
-                                             filetype=(("All files", "*.*"), ),
+                                             filetypes=(("All files",
+                                                         "*.*"), ),
                                              initialfile='Untitled.fmt')
         if file_path:
             with open(file_path.name, 'w') as f:
@@ -174,7 +175,7 @@ class Root(Tk):
             task_file_name = filedialog.askopenfilename(
                 initialdir=original_drc,
                 title="Choose task file",
-                filetype=(("fmt file", "*.fmt"), ("All files", "*.*")))
+                filetypes=(("fmt file", "*.fmt"), ("All files", "*.*")))
         if task_file_name:
             self.clear_files()
             with open(task_file_name) as f:
@@ -296,8 +297,8 @@ class Root(Tk):
         if mode == 0:
             filenames = filedialog.askopenfilenames(initialdir=original_drc,
                                                     title="Choose files",
-                                                    filetype=(("All files",
-                                                               "*.*"), ))
+                                                    filetypes=(("All files",
+                                                                "*.*"), ))
             if filenames:
                 filenames = list(filenames)
                 self.filenames += filenames
@@ -333,8 +334,8 @@ class Root(Tk):
         mixed_name = filedialog.asksaveasfile(initialdir=original_drc,
                                               title="Save merged file",
                                               defaultextension='.fm',
-                                              filetype=(("All files",
-                                                         "*.*"), ),
+                                              filetypes=(("All files",
+                                                          "*.*"), ),
                                               initialfile='Untitled.fm')
         if not mixed_name:
             return
@@ -371,8 +372,8 @@ class Root(Tk):
     def choose_unzip_file_name(self):
         current_file_name = filedialog.askopenfilename(initialdir=original_drc,
                                                        title="Choose files",
-                                                       filetype=(("All files",
-                                                                  "*.*"), ))
+                                                       filetypes=(("All files",
+                                                                   "*.*"), ))
         if current_file_name:
             self.unzip_file_name = current_file_name
             self.unzip_file_name_show.configure(text=self.unzip_file_name)
