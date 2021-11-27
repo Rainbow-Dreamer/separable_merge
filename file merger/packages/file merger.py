@@ -369,11 +369,12 @@ class Root(Tk):
             text=f'Successfully merge the files, please look at {mixed_name}')
 
     def choose_unzip_file_name(self):
-        self.unzip_file_name = filedialog.askopenfilename(
-            initialdir=original_drc,
-            title="Choose files",
-            filetype=(("All files", "*.*"), ))
-        if self.unzip_file_name:
+        current_file_name = filedialog.askopenfilename(initialdir=original_drc,
+                                                       title="Choose files",
+                                                       filetype=(("All files",
+                                                                  "*.*"), ))
+        if current_file_name:
+            self.unzip_file_name = current_file_name
             self.unzip_file_name_show.configure(text=self.unzip_file_name)
 
     def file_unzip(self, mode=0):
