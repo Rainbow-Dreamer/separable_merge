@@ -351,7 +351,7 @@ class Root(Tk):
                         file_size_counter += len(current_chunk)
                         self.msg.configure(
                             text=
-                            f'{counter}/{file_num} Merging {round((file_size_counter/current_file_size)*100, 3)}% of file {t}'
+                            f'{counter}/{file_num} Merging {round((file_size_counter/current_file_size)*100, 3):.3f}% of file {t}'
                         )
                         self.msg.update()
                     else:
@@ -404,7 +404,7 @@ class Root(Tk):
                             if current_file_size:
                                 self.msg.configure(
                                     text=
-                                    f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3)}% of file {current_filename}'
+                                    f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                                 )
                                 self.msg.update()
                         f.write(file.read(remain_size))
@@ -412,7 +412,7 @@ class Root(Tk):
                         if current_file_size:
                             self.msg.configure(
                                 text=
-                                f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3)}% of file {current_filename}'
+                                f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                             )
                             self.msg.update()
             else:
@@ -455,7 +455,7 @@ class Root(Tk):
                             if current_file_size:
                                 self.msg.configure(
                                     text=
-                                    f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3)}% of file {current_filename}'
+                                    f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                                 )
                                 self.msg.update()
                         f.write(file.read(remain_size))
@@ -463,7 +463,7 @@ class Root(Tk):
                         if current_file_size:
                             self.msg.configure(
                                 text=
-                                f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3)}% of file {current_filename}'
+                                f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                             )
                             self.msg.update()
         self.msg.configure(
