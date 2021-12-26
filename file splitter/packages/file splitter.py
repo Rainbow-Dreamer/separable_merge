@@ -134,7 +134,7 @@ class Root(Tk):
             if split_size:
                 self.msg.configure(
                     text=
-                    f'Currently writing portion {i+1}/{length} {round((write_counter/split_size)*100, 3)}%'
+                    f'Currently writing portion {i+1}/{length} {round((write_counter/split_size)*100, 3):.3f}%'
                 )
                 self.msg.update()
         f.write(file.read(remain_size))
@@ -142,7 +142,7 @@ class Root(Tk):
         if split_size:
             self.msg.configure(
                 text=
-                f'Currently writing portion {i+1}/{length} {round((write_counter/split_size)*100, 3)}%'
+                f'Currently writing portion {i+1}/{length} {round((write_counter/split_size)*100, 3):.3f}%'
             )
             self.msg.update()
 
