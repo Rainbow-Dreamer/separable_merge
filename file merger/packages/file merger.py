@@ -84,6 +84,7 @@ def build_folders(current_dict, choose_file=None):
 
 
 class Root(Tk):
+
     def __init__(self):
         super(Root, self).__init__()
         self.minsize(850, 600)
@@ -158,8 +159,7 @@ class Root(Tk):
         self.merge_dict = {}
 
     def save_task(self):
-        file_path = filedialog.asksaveasfile(initialdir=original_drc,
-                                             title="Save current task",
+        file_path = filedialog.asksaveasfile(title="Save current task",
                                              filetypes=(("All files",
                                                          "*.*"), ),
                                              initialfile='Untitled.fmt')
@@ -173,7 +173,6 @@ class Root(Tk):
     def import_task(self, task_file_name=None):
         if not task_file_name:
             task_file_name = filedialog.askopenfilename(
-                initialdir=original_drc,
                 title="Choose task file",
                 filetypes=(("fmt file", "*.fmt"), ("All files", "*.*")))
         if task_file_name:
@@ -295,8 +294,7 @@ class Root(Tk):
 
     def choose_mix_files(self, mode=0):
         if mode == 0:
-            filenames = filedialog.askopenfilenames(initialdir=original_drc,
-                                                    title="Choose files",
+            filenames = filedialog.askopenfilenames(title="Choose files",
                                                     filetypes=(("All files",
                                                                 "*.*"), ))
             if filenames:
@@ -311,8 +309,7 @@ class Root(Tk):
                 self.choose_files_show.insert(END, '\n'.join(filenames) + '\n')
                 self.choose_files_show.configure(state='disabled')
         else:
-            dirnames = tkfilebrowser.askopendirnames(initialdir=original_drc,
-                                                     title="Choose folders")
+            dirnames = tkfilebrowser.askopendirnames(title="Choose folders")
             if dirnames:
                 for each in dirnames:
                     self.filenames += get_all_files_in_dir(each)
@@ -331,8 +328,7 @@ class Root(Tk):
         if not self.filenames:
             self.msg.configure(text='The merge file list is empty')
             return
-        mixed_name = filedialog.asksaveasfile(initialdir=original_drc,
-                                              title="Save merged file",
+        mixed_name = filedialog.asksaveasfile(title="Save merged file",
                                               defaultextension='.fm',
                                               filetypes=(("All files",
                                                           "*.*"), ),
@@ -370,8 +366,7 @@ class Root(Tk):
             text=f'Successfully merge the files, please look at {mixed_name}')
 
     def choose_unzip_file_name(self):
-        current_file_name = filedialog.askopenfilename(initialdir=original_drc,
-                                                       title="Choose files",
+        current_file_name = filedialog.askopenfilename(title="Choose files",
                                                        filetypes=(("All files",
                                                                    "*.*"), ))
         if current_file_name:
@@ -384,7 +379,7 @@ class Root(Tk):
             self.update()
             return
         unzip_path = filedialog.askdirectory(
-            initialdir=original_drc, title="Choose the directory to unzip to")
+            title="Choose the directory to unzip to")
         if not unzip_path:
             return
         os.chdir(unzip_path)

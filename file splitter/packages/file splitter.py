@@ -9,6 +9,7 @@ read_unit = 1024 * 16
 
 
 class Root(Tk):
+
     def __init__(self):
         super(Root, self).__init__()
         self.split_file = None
@@ -109,8 +110,7 @@ class Root(Tk):
         self.choose_files_size_show.delete('1.0', END)
 
     def choose_split_files(self):
-        split_file_name = filedialog.askopenfilename(initialdir='.',
-                                                     title="Choose file",
+        split_file_name = filedialog.askopenfilename(title="Choose file",
                                                      filetype=(("All files",
                                                                 "*.*"), ))
         if not split_file_name:
@@ -150,8 +150,7 @@ class Root(Tk):
         if not self.split_file_name:
             self.msg.configure(text='No files are selected')
             return
-        file_path = filedialog.askdirectory(initialdir='.',
-                                            title="Choose directory")
+        file_path = filedialog.askdirectory(title="Choose directory")
         if not file_path:
             return
         os.chdir(file_path)
