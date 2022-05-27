@@ -160,8 +160,7 @@ class Root(Tk):
 
     def save_task(self):
         file_path = filedialog.asksaveasfile(title="Save current task",
-                                             filetypes=(("All files",
-                                                         "*.*"), ),
+                                             filetypes=(("All files", "*"), ),
                                              initialfile='Untitled.fmt')
         if file_path:
             with open(file_path.name, 'w') as f:
@@ -174,7 +173,7 @@ class Root(Tk):
         if not task_file_name:
             task_file_name = filedialog.askopenfilename(
                 title="Choose task file",
-                filetypes=(("fmt file", "*.fmt"), ("All files", "*.*")))
+                filetypes=(("fmt file", ".fmt"), ("All files", "*")))
         if task_file_name:
             self.clear_files()
             with open(task_file_name) as f:
@@ -296,7 +295,7 @@ class Root(Tk):
         if mode == 0:
             filenames = filedialog.askopenfilenames(title="Choose files",
                                                     filetypes=(("All files",
-                                                                "*.*"), ))
+                                                                "*"), ))
             if filenames:
                 filenames = list(filenames)
                 self.filenames += filenames
@@ -330,8 +329,7 @@ class Root(Tk):
             return
         mixed_name = filedialog.asksaveasfile(title="Save merged file",
                                               defaultextension='.fm',
-                                              filetypes=(("All files",
-                                                          "*.*"), ),
+                                              filetypes=(("All files", "*"), ),
                                               initialfile='Untitled.fm')
         if not mixed_name:
             return
@@ -368,7 +366,7 @@ class Root(Tk):
     def choose_unzip_file_name(self):
         current_file_name = filedialog.askopenfilename(title="Choose files",
                                                        filetypes=(("All files",
-                                                                   "*.*"), ))
+                                                                   "*"), ))
         if current_file_name:
             self.unzip_file_name = current_file_name
             self.unzip_file_name_show.configure(text=self.unzip_file_name)

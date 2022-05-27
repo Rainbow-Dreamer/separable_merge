@@ -111,8 +111,8 @@ class Root(Tk):
 
     def choose_split_files(self):
         split_file_name = filedialog.askopenfilename(title="Choose file",
-                                                     filetype=(("All files",
-                                                                "*.*"), ))
+                                                     filetypes=(("All files",
+                                                                 "*"), ))
         if not split_file_name:
             return
         self.split_file_name = split_file_name
