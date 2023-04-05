@@ -1,6 +1,18 @@
 original_drc = os.getcwd()
 
-read_unit = 1024 * 16
+with open('config.json', encoding='utf-8') as f:
+    current_settings = json.load(f)
+
+read_unit = current_settings['read_unit']
+if read_unit.endswith('KB'):
+    read_unit_num = int(read_unit.split('KB')[0])
+    read_unit = read_unit_num * 1024
+elif read_unit.endswith('MB'):
+    read_unit_num = int(read_unit.split('MB')[0])
+    read_unit = read_unit_num * (1024**2)
+elif read_unit.endswith('GB'):
+    read_unit_num = int(read_unit.split('GB')[0])
+    read_unit = read_unit_num * (1024**3)
 
 
 def normal_path(path):
@@ -70,17 +82,12 @@ def get_unzip_file(current_dict):
     return result
 
 
-def build_folders(current_dict, choose_file=None):
-    for each in current_dict:
-        current = current_dict[each]
-        if type(current) == list:
-            if choose_file:
-                if each in choose_file:
-                    os.makedirs(each)
-            else:
-                os.mkdir(each)
-            for i in current:
-                build_folders(i, choose_file)
+class header:
+
+    def __init__(self):
+        self.merge_dict = {}
+        self.has_password = False
+        self.salt = ''
 
 
 class Root(Tk):
@@ -128,13 +135,15 @@ class Root(Tk):
         self.start_unzip = ttk.Button(self,
                                       text='Start unzipping',
                                       command=self.file_unzip)
-        self.choose_unzip_file.place(x=0, y=330)
+        self.choose_unzip_file.place(x=0, y=350)
         self.start_unzip.place(x=0, y=400)
+        self.set_password_button = ttk.Button(self,
+                                              text='Set password',
+                                              command=self.set_password)
+        self.set_password_button.place(x=500, y=350)
         self.filenames = []
         self.actual_filenames = []
         self.unzip_file_name = ''
-        self.unzip_file_name_show = ttk.Label(self, text='')
-        self.unzip_file_name_show.place(x=210, y=335)
         self.msg = ttk.Label(self, text='Currently no actions')
         self.msg.place(x=0, y=550)
         self.browse_files = ttk.Button(
@@ -156,7 +165,12 @@ class Root(Tk):
                                                text='direct merge',
                                                variable=self.is_direct_merge)
         self.direct_merge_button.place(x=570, y=20)
-        self.merge_dict = {}
+        self.current_header = header()
+        self.browse_file_window = None
+        self.set_password_window = None
+        self.ask_password_window = None
+        self.current_decrypted = False
+        self.current_password = None
 
     def save_task(self):
         file_path = filedialog.asksaveasfile(title="Save current task",
@@ -190,11 +204,11 @@ class Root(Tk):
                     current_dict = parse_dir(current_path,
                                              header,
                                              get_size=True)
-                    self.merge_dict.update(current_dict)
+                    self.current_header.merge_dict.update(current_dict)
                 elif os.path.isfile(each):
                     self.filenames.append(each)
-                    self.merge_dict[os.path.basename(each)] = os.path.getsize(
-                        each)
+                    self.current_header.merge_dict[os.path.basename(
+                        each)] = os.path.getsize(each)
             self.msg.configure(
                 text=f'Successfully import task file {task_file_name}')
             self.msg.update()
@@ -211,6 +225,7 @@ class Root(Tk):
     def treeview_build_folders(self, current_dict, parent=''):
         for i, j in current_dict.items():
             if type(j) == list:
+                self.file_path_dict[i] = True
                 current_folder = self.browse_file_list.insert(parent,
                                                               "end",
                                                               i,
@@ -218,6 +233,7 @@ class Root(Tk):
                 for each in j:
                     self.treeview_build_folders(each, current_folder)
             else:
+                self.file_path_dict[i] = False
                 self.browse_file_list.insert(parent,
                                              "end",
                                              i,
@@ -229,9 +245,21 @@ class Root(Tk):
             self.browse_file_list.selection_remove(item)
 
     def browse_files_func(self):
+        if self.browse_file_window is not None and self.browse_file_window.winfo_exists(
+        ):
+            self.browse_file_window.focus_force()
+            return
         if not self.unzip_file_name:
             self.msg.configure(text='No file is selected to unzip')
             return
+        with open(self.unzip_file_name, 'rb') as file:
+            current_header = pickle.load(file)
+        if current_header.has_password and not self.current_decrypted:
+            self.ask_password(current_header)
+        else:
+            self.open_browse_file_window(current_header)
+
+    def open_browse_file_window(self, current_header):
         self.browse_filenames = []
         self.browse_file_window = Toplevel(self)
         try:
@@ -268,12 +296,12 @@ class Root(Tk):
             self.browse_file_window,
             text='Click to choose files and folders you want to unzip')
         self.browse_file_msg.place(x=0, y=20)
-        with open(self.unzip_file_name, 'rb') as file:
-            current_dict = pickle.load(file)
-            filenames = get_unzip_file(current_dict)
-            for each in range(len(filenames)):
-                current_filename = filenames[each]
-                self.browse_filenames.append(current_filename)
+        current_dict = current_header.merge_dict
+        filenames = get_unzip_file(current_dict)
+        for each in range(len(filenames)):
+            current_filename = filenames[each]
+            self.browse_filenames.append(current_filename)
+        self.file_path_dict = {}
         self.treeview_build_folders(current_dict)
         os.chdir(original_drc)
         self.msg.configure(text='Successfully open file list')
@@ -289,7 +317,7 @@ class Root(Tk):
         self.choose_files_show.configure(state='normal')
         self.choose_files_show.delete('1.0', END)
         self.choose_files_show.configure(state='disabled')
-        self.merge_dict.clear()
+        self.current_header.merge_dict.clear()
 
     def choose_mix_files(self, mode=0):
         if mode == 0:
@@ -300,7 +328,7 @@ class Root(Tk):
                 filenames = list(filenames)
                 self.filenames += filenames
                 self.actual_filenames += filenames
-                self.merge_dict.update({
+                self.current_header.merge_dict.update({
                     os.path.basename(each): os.path.getsize(each)
                     for each in filenames
                 })
@@ -308,19 +336,16 @@ class Root(Tk):
                 self.choose_files_show.insert(END, '\n'.join(filenames) + '\n')
                 self.choose_files_show.configure(state='disabled')
         else:
-            dirnames = tkfilebrowser.askopendirnames(title="Choose folders")
-            if dirnames:
-                for each in dirnames:
-                    self.filenames += get_all_files_in_dir(each)
-                    header, current_path = os.path.split(each)
-                    current_dict = parse_dir(current_path,
-                                             header,
-                                             get_size=True)
-                    self.merge_dict.update(current_dict)
-                dirnames = [normal_path(i) for i in dirnames]
-                self.actual_filenames += dirnames
+            dirname = filedialog.askdirectory(title="Choose folders")
+            if dirname:
+                self.filenames += get_all_files_in_dir(dirname)
+                header, current_path = os.path.split(dirname)
+                current_dict = parse_dir(current_path, header, get_size=True)
+                self.current_header.merge_dict.update(current_dict)
+                dirname = normal_path(dirname)
+                self.actual_filenames.append(dirname)
                 self.choose_files_show.configure(state='normal')
-                self.choose_files_show.insert(END, '\n'.join(dirnames) + '\n')
+                self.choose_files_show.insert(END, dirname + '\n')
                 self.choose_files_show.configure(state='disabled')
 
     def filemix(self):
@@ -336,9 +361,22 @@ class Root(Tk):
         mixed_name = mixed_name.name
         counter = 1
         file_num = len(self.filenames)
+        current_encrypt = False
         with open(mixed_name, 'wb') as file:
             if not self.is_direct_merge.get():
-                file.write(pickle.dumps(self.merge_dict))
+                if self.current_header.has_password:
+                    current_encrypt = True
+                    current_salt = self.generate_salt()
+                    self.current_header.salt = current_salt
+                    current_key = self.generate_key(self.current_password,
+                                                    current_salt)
+                    new_header = copy(self.current_header)
+                    new_read_unit = len(current_key.encrypt(b'a' * read_unit))
+                    self.update_merge_dict_with_key(new_header.merge_dict,
+                                                    current_key, new_read_unit)
+                    file.write(pickle.dumps(new_header))
+                else:
+                    file.write(pickle.dumps(self.current_header))
             for t in self.filenames:
                 current_file_size = os.path.getsize(t)
                 file_size_counter = 0
@@ -346,8 +384,11 @@ class Root(Tk):
                 while True:
                     current_chunk = f.read(read_unit)
                     if current_chunk:
+                        current_length = len(current_chunk)
+                        if current_encrypt:
+                            current_chunk = current_key.encrypt(current_chunk)
                         file.write(current_chunk)
-                        file_size_counter += len(current_chunk)
+                        file_size_counter += current_length
                         self.msg.configure(
                             text=
                             f'{counter}/{file_num} Merging {round((file_size_counter/current_file_size)*100, 3):.3f}% of file {t}'
@@ -361,7 +402,7 @@ class Root(Tk):
                 counter += 1
         os.chdir(original_drc)
         self.msg.configure(
-            text=f'Successfully merge the files, please look at {mixed_name}')
+            text=f'Merging is finished, please look at {mixed_name}')
 
     def choose_unzip_file_name(self):
         current_file_name = filedialog.askopenfilename(title="Choose files",
@@ -369,43 +410,97 @@ class Root(Tk):
                                                                    "*"), ))
         if current_file_name:
             self.unzip_file_name = current_file_name
-            self.unzip_file_name_show.configure(text=self.unzip_file_name)
+            self.msg.configure(text=f'choose file {self.unzip_file_name}')
+            self.current_decrypted = False
+
+    def build_folders(self, current_dict):
+        for each in current_dict:
+            current = current_dict[each]
+            if type(current) == list:
+                os.makedirs(each, exist_ok=True)
+                for i in current:
+                    self.build_folders(i)
+
+    def find_file_path_dict(self, path, current_dict):
+        for key, value in current_dict.items():
+            if key == path:
+                return current_dict
+            else:
+                if isinstance(value, list):
+                    for each in value:
+                        result = self.find_file_path_dict(path, each)
+                        if result is not None:
+                            return result
+
+    def find_path_filenames(self, path, current_dict, unzip_filenames):
+        for key, value in current_dict.items():
+            if isinstance(value, list):
+                current_dir = os.path.join(path, os.path.split(key)[1])
+                os.makedirs(current_dir, exist_ok=True)
+                for each in value:
+                    self.find_path_filenames(current_dir, each,
+                                             unzip_filenames)
+            else:
+                current_filename = os.path.join(path, os.path.split(key)[1])
+                unzip_filenames.append(current_filename)
 
     def file_unzip(self, mode=0):
         if not self.unzip_file_name:
             self.msg.configure(text='No file is selected to unzip')
             self.update()
             return
+        with open(self.unzip_file_name, 'rb') as file:
+            current_header = pickle.load(file)
+        if current_header.has_password and not self.current_decrypted:
+            self.ask_password(current_header, mode=1, unzip_mode=mode)
+        else:
+            self.file_unzip_func(current_header, mode)
+
+    def file_unzip_func(self, current_header, mode=0):
         unzip_path = filedialog.askdirectory(
             title="Choose the directory to unzip to")
         if not unzip_path:
             return
         os.chdir(unzip_path)
         with open(self.unzip_file_name, 'rb') as file:
-            current_dict = pickle.load(file)
+            current_header = pickle.load(file)
+            current_read_unit = read_unit
+            if current_header.has_password:
+                current_key = self.generate_key(self.current_password,
+                                                current_header.salt)
+                current_read_unit = len(
+                    current_key.encrypt(b'a' * current_read_unit))
+            current_dict = current_header.merge_dict
             current_dict_size = file.tell()
             unzip_ind = get_unzip_ind(current_dict)
             filenames = get_unzip_file(current_dict)
             if mode == 0:
-                build_folders(current_dict)
+                self.build_folders(current_dict)
                 length = get_len(current_dict)
                 for each in range(length):
                     current_filename = filenames[each]
                     current_file_size = unzip_ind[each]
                     read_times, remain_size = divmod(current_file_size,
-                                                     read_unit)
+                                                     current_read_unit)
                     write_counter = 0
                     with open(current_filename, 'wb') as f:
                         for k in range(read_times):
-                            f.write(file.read(read_unit))
-                            write_counter += read_unit
+                            current_chunk = file.read(current_read_unit)
+                            if current_header.has_password:
+                                current_chunk = current_key.decrypt(
+                                    current_chunk)
+                            f.write(current_chunk)
+                            write_counter += current_read_unit
                             if current_file_size:
                                 self.msg.configure(
                                     text=
                                     f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                                 )
                                 self.msg.update()
-                        f.write(file.read(remain_size))
+                        remain_part = file.read(remain_size)
+                        if current_header.has_password:
+                            remain_part = current_key.decrypt(remain_part)
+                        f.write(remain_part)
                         write_counter += remain_size
                         if current_file_size:
                             self.msg.configure(
@@ -413,7 +508,7 @@ class Root(Tk):
                                 f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                             )
                             self.msg.update()
-            else:
+            elif mode == 1:
                 current_selected_files = [
                     self.browse_file_list.item(each, 'text')
                     for each in self.browse_file_list.selection()
@@ -421,42 +516,57 @@ class Root(Tk):
                 if not current_selected_files:
                     return
                 select_file_ind = []
+                unzip_filenames = []
                 for i in current_selected_files:
                     if i in filenames:
                         select_file_ind.append(filenames.index(i))
+                        current_filename = os.path.split(i)[1]
+                        unzip_filenames.append(current_filename)
                     else:
-                        select_file_ind += [
+                        current_dir = os.path.split(i)[1]
+                        current_inds = [
                             k for k in range(len(filenames))
                             if os.path.split(filenames[k])[0].startswith(i)
                         ]
+                        select_file_ind.extend(current_inds)
+                        current_dir = os.path.split(i)[1]
+                        os.makedirs(current_dir, exist_ok=True)
+                        current_file_path_dict = self.find_file_path_dict(
+                            i, current_dict)
+                        self.find_path_filenames('', current_file_path_dict,
+                                                 unzip_filenames)
                 select_file_range = [(sum(unzip_ind[:i]),
                                       sum(unzip_ind[:i + 1]))
                                      for i in select_file_ind]
                 length = len(select_file_ind)
                 file_length = len(filenames)
-                build_folders(
-                    current_dict,
-                    [os.path.dirname(filenames[i]) for i in select_file_ind])
                 for each in range(length):
                     current_ind = select_file_ind[each]
-                    current_filename = filenames[current_ind]
+                    current_filename = unzip_filenames[each]
                     current_file_size = unzip_ind[current_ind]
                     current_select_file_range = select_file_range[each]
                     file.seek(current_select_file_range[0] + current_dict_size)
                     read_times, remain_size = divmod(current_file_size,
-                                                     read_unit)
+                                                     current_read_unit)
                     write_counter = 0
                     with open(current_filename, 'wb') as f:
                         for k in range(read_times):
-                            f.write(file.read(read_unit))
-                            write_counter += read_unit
+                            current_chunk = file.read(current_read_unit)
+                            if current_header.has_password:
+                                current_chunk = current_key.decrypt(
+                                    current_chunk)
+                            f.write(current_chunk)
+                            write_counter += current_read_unit
                             if current_file_size:
                                 self.msg.configure(
                                     text=
                                     f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                                 )
                                 self.msg.update()
-                        f.write(file.read(remain_size))
+                        remain_part = file.read(remain_size)
+                        if current_header.has_password:
+                            remain_part = current_key.decrypt(remain_part)
+                        f.write(remain_part)
                         write_counter += remain_size
                         if current_file_size:
                             self.msg.configure(
@@ -466,9 +576,138 @@ class Root(Tk):
                             self.msg.update()
         self.msg.configure(
             text=
-            f'Successfully unzip the files, please look at the directory {unzip_path}'
+            f'Unzipping is finished, please look at the directory {unzip_path}'
         )
         os.chdir(original_drc)
+
+    def set_password(self):
+        if self.set_password_window is not None and self.set_password_window.winfo_exists(
+        ):
+            self.set_password_window.focus_force()
+            return
+        self.set_password_window = Toplevel(self)
+        try:
+            self.set_password_window.wm_iconbitmap('resources/icon.ico')
+        except:
+            pass
+        self.set_password_window.minsize(350, 200)
+        self.set_password_window.title('Set password')
+        self.set_password_window.focus_force()
+        self.set_password_entry = ttk.Entry(self.set_password_window, width=20)
+        if self.current_password:
+            self.set_password_entry.insert(END, self.current_password)
+        self.set_password_entry.place(x=20, y=20)
+        self.set_password_label = ttk.Label(self.set_password_window,
+                                            text='enter password here')
+        self.set_password_label.place(x=180, y=20)
+        self.set_password_func_button = ttk.Button(
+            self.set_password_window,
+            text='set password',
+            command=self.set_password_func)
+        self.set_password_func_button.place(x=20, y=100)
+
+    def set_password_func(self):
+        current_password = self.set_password_entry.get()
+        if not current_password:
+            self.current_header.has_password = False
+            self.current_header.salt = ''
+            self.current_password = current_password
+        else:
+            self.current_header.has_password = True
+            self.current_password = current_password
+
+    def ask_password(self, current_header, mode=0, unzip_mode=0):
+        if self.ask_password_window is not None and self.ask_password_window.winfo_exists(
+        ):
+            self.ask_password_window.focus_force()
+            return
+        self.ask_password_window = Toplevel(self)
+        try:
+            self.ask_password_window.wm_iconbitmap('resources/icon.ico')
+        except:
+            pass
+        self.ask_password_window.minsize(350, 200)
+        self.ask_password_window.title('Enter password')
+        self.ask_password_window.focus_force()
+        self.ask_password_entry = ttk.Entry(self.ask_password_window, width=20)
+        self.ask_password_entry.place(x=20, y=20)
+        self.ask_password_label = ttk.Label(self.ask_password_window,
+                                            text='enter password here')
+        self.ask_password_label.place(x=180, y=20)
+        self.ask_password_func_button = ttk.Button(
+            self.ask_password_window,
+            text='try password',
+            command=lambda: self.ask_password_func(current_header, mode,
+                                                   unzip_mode))
+        self.ask_password_func_button.place(x=20, y=100)
+
+    def ask_password_func(self, current_header, mode, unzip_mode):
+        current_password = self.ask_password_entry.get()
+        current_key = self.verify_key(current_password, current_header.salt)
+        if current_key:
+            self.ask_password_window.destroy()
+            self.current_decrypted = True
+            self.current_password = current_password
+            if mode == 0:
+                self.open_browse_file_window(current_header)
+            else:
+                self.file_unzip_func(current_header, unzip_mode)
+        else:
+            self.msg.configure(text='incorrect password')
+
+    def verify_key(self, password, salt):
+        try:
+            password = password.encode('utf-8')
+            kdf = PBKDF2HMAC(algorithm=hashes.SHA256(),
+                             length=32,
+                             salt=salt,
+                             iterations=390000)
+            key = base64.urlsafe_b64encode(kdf.derive(password))
+            current_key = Fernet(key)
+        except:
+            return False
+
+        new_read_unit = len(current_key.encrypt(b'a' * read_unit))
+        with open(self.unzip_file_name, 'rb') as file:
+            current_header = pickle.load(file)
+            test_file = file.read(new_read_unit)
+            try:
+                decrypt_file = current_key.decrypt(test_file)
+                return True
+            except:
+                return False
+
+    def generate_salt(self):
+        salt = os.urandom(16)
+        return salt
+
+    def generate_key(self, password, salt):
+        password = password.encode('utf-8')
+        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(),
+                         length=32,
+                         salt=salt,
+                         iterations=390000)
+        key = base64.urlsafe_b64encode(kdf.derive(password))
+        f = Fernet(key)
+        return f
+
+    def get_new_file_size_with_key(self, current_key, current_file_size,
+                                   new_read_unit):
+        read_times, remain_size = divmod(current_file_size, read_unit)
+        new_file_size = read_times * new_read_unit + len(
+            current_key.encrypt(b'a' * remain_size))
+        return new_file_size
+
+    def update_merge_dict_with_key(self, current_dict, current_key,
+                                   new_read_unit):
+        for key, value in current_dict.items():
+            if isinstance(value, list):
+                for each in value:
+                    self.update_merge_dict_with_key(each, current_key,
+                                                    new_read_unit)
+            else:
+                current_dict[key] = self.get_new_file_size_with_key(
+                    current_key, value, new_read_unit)
 
 
 if __name__ == '__main__':
@@ -481,6 +720,6 @@ if __name__ == '__main__':
             root.import_task(current_file)
         else:
             root.unzip_file_name = current_file
-            root.unzip_file_name_show.configure(text=root.unzip_file_name)
+            root.msg.configure(text=f'choose file {root.unzip_file_name}')
             root.after(100, root.browse_files_func)
     root.mainloop()
