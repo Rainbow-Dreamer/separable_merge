@@ -1,4 +1,4 @@
-﻿original_drc = os.getcwd()
+original_drc = os.getcwd()
 
 read_unit = 1024 * 16
 

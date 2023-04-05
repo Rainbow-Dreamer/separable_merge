@@ -1,6 +1,10 @@
-﻿original_drc = os.getcwd()
+original_drc = os.getcwd()
 
 read_unit = 1024 * 16
+
+
+def normal_path(path):
+    return path.replace('\\', '/')
 
 
 def parse_dir(dirname, header, mode=0, get_size=False):
@@ -8,12 +12,12 @@ def parse_dir(dirname, header, mode=0, get_size=False):
         dirname = dirname[len(header) + 1:]
     current_files = os.listdir(os.path.join(header, dirname))
     for i, j in enumerate(current_files):
-        current_real_path = os.path.join(header, dirname, j)
+        current_real_path = normal_path(os.path.join(header, dirname, j))
         if os.path.isdir(current_real_path):
             current_files[i] = parse_dir(current_real_path, header, 1,
                                          get_size)
         else:
-            current_file_name = os.path.join(dirname, j)
+            current_file_name = normal_path(os.path.join(dirname, j))
             current_files[i] = {
                 current_file_name: os.path.getsize(current_real_path)
             } if get_size else current_file_name
@@ -24,7 +28,7 @@ def get_all_files_in_dir(dirname):
     result = []
     current_files = os.listdir(dirname)
     for i, j in enumerate(current_files):
-        current_real_path = os.path.join(dirname, j)
+        current_real_path = normal_path(os.path.join(dirname, j))
         if os.path.isfile(current_real_path):
             result.append(current_real_path)
         else:
@@ -100,7 +104,7 @@ class Root(Tk):
         self.clear_choose_files = ttk.Button(self,
                                              text='Clear',
                                              command=self.clear_files)
-        self.choose_files_show = Text(self, height=20, width=105, wrap='none')
+        self.choose_files_show = Text(self, height=17, width=95, wrap='none')
         self.choose_files_show.configure(state='disabled')
         self.choose_files.place(x=0, y=20)
         self.choose_file_list_bar = ttk.Scrollbar(self, orient="vertical")
@@ -111,8 +115,8 @@ class Root(Tk):
         self.choose_file_list_bar.config(command=self.choose_files_show.yview)
         self.choose_file_list_bar_h.config(
             command=self.choose_files_show.xview)
-        self.choose_file_list_bar.place(x=770, y=50, height=275, anchor=N)
-        self.choose_file_list_bar_h.place(x=0, y=332, width=765, anchor=W)
+        self.choose_file_list_bar.place(x=675, y=50, height=225, anchor=N)
+        self.choose_file_list_bar_h.place(x=0, y=283, width=670, anchor=W)
         self.add_choose_path.place(x=150, y=20)
         self.choose_files_show.place(x=0, y=50)
         self.start_mix.place(x=300, y=20)
@@ -124,13 +128,13 @@ class Root(Tk):
         self.start_unzip = ttk.Button(self,
                                       text='Start unzipping',
                                       command=self.file_unzip)
-        self.choose_unzip_file.place(x=0, y=360)
+        self.choose_unzip_file.place(x=0, y=330)
         self.start_unzip.place(x=0, y=400)
         self.filenames = []
         self.actual_filenames = []
         self.unzip_file_name = ''
         self.unzip_file_name_show = ttk.Label(self, text='')
-        self.unzip_file_name_show.place(x=240, y=365)
+        self.unzip_file_name_show.place(x=210, y=335)
         self.msg = ttk.Label(self, text='Currently no actions')
         self.msg.place(x=0, y=550)
         self.browse_files = ttk.Button(
@@ -252,14 +256,14 @@ class Root(Tk):
         self.browse_file_list.column("one", width=160, minwidth=50)
         self.browse_file_list.heading("#0", text="File Name", anchor=W)
         self.browse_file_list.heading("one", text="File Size", anchor=W)
-        self.browse_file_list.bind('<Button-2>',
+        self.browse_file_list.bind('<Button-3>',
                                    lambda e: self.clear_browse_file_list())
 
         self.browse_file_list_bar.config(command=self.browse_file_list.yview)
         self.browse_file_list_bar_h.config(command=self.browse_file_list.xview)
         self.browse_file_list.place(x=0, y=50)
         self.browse_file_list_bar.place(x=570, y=50, height=360, anchor=N)
-        self.browse_file_list_bar_h.place(x=0, y=417, width=570, anchor=W)
+        self.browse_file_list_bar_h.place(x=0, y=425, width=570, anchor=W)
         self.browse_file_msg = ttk.Label(
             self.browse_file_window,
             text='Click to choose files and folders you want to unzip')
@@ -313,6 +317,7 @@ class Root(Tk):
                                              header,
                                              get_size=True)
                     self.merge_dict.update(current_dict)
+                dirnames = [normal_path(i) for i in dirnames]
                 self.actual_filenames += dirnames
                 self.choose_files_show.configure(state='normal')
                 self.choose_files_show.insert(END, '\n'.join(dirnames) + '\n')
@@ -478,8 +483,4 @@ if __name__ == '__main__':
             root.unzip_file_name = current_file
             root.unzip_file_name_show.configure(text=root.unzip_file_name)
             root.after(100, root.browse_files_func)
-    script = f'tell application "System Events" \
-    to set frontmost of the first process whose unix id is {os.getpid()} to true'
-
-    os.system(f"/usr/bin/osascript -e '{script}'")
     root.mainloop()
