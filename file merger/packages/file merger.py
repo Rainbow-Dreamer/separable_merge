@@ -103,12 +103,14 @@ class Root(Tk):
         self.title('File Merger and Splitter')
         self.choose_files = ttk.Button(self,
                                        text='Add files',
-                                       command=self.choose_mix_files)
+                                       command=self.choose_merge_files)
         self.add_choose_path = ttk.Button(
-            self, text='Add folders', command=lambda: self.choose_mix_files(1))
-        self.start_mix = ttk.Button(self,
-                                    text='Start merging',
-                                    command=self.filemix)
+            self,
+            text='Add folders',
+            command=lambda: self.choose_merge_files(1))
+        self.start_merge = ttk.Button(self,
+                                      text='Start merging',
+                                      command=self.file_merge)
         self.clear_choose_files = ttk.Button(self,
                                              text='Clear',
                                              command=self.clear_files)
@@ -127,7 +129,7 @@ class Root(Tk):
         self.choose_file_list_bar_h.place(x=0, y=283, width=670, anchor=W)
         self.add_choose_path.place(x=150, y=20)
         self.choose_files_show.place(x=0, y=50)
-        self.start_mix.place(x=300, y=20)
+        self.start_merge.place(x=300, y=20)
         self.clear_choose_files.place(x=450, y=20)
         self.choose_unzip_file = ttk.Button(
             self,
@@ -320,7 +322,7 @@ class Root(Tk):
         self.choose_files_show.configure(state='disabled')
         self.current_header.merge_dict.clear()
 
-    def choose_mix_files(self, mode=0):
+    def choose_merge_files(self, mode=0):
         if mode == 0:
             filenames = filedialog.askopenfilenames(title="Choose files",
                                                     filetypes=(("All files",
@@ -353,21 +355,22 @@ class Root(Tk):
                     self.choose_files_show.configure(state='disabled')
                     self.filenames.extend(get_all_files_in_dir(dirname))
 
-    def filemix(self):
+    def file_merge(self):
         if not self.filenames:
             self.msg.configure(text='The merge file list is empty')
             return
-        mixed_name = filedialog.asksaveasfile(title="Save merged file",
-                                              defaultextension='.fm',
-                                              filetypes=(("All files", "*"), ),
-                                              initialfile='Untitled.fm')
-        if not mixed_name:
+        merged_name = filedialog.asksaveasfile(title="Save merged file",
+                                               defaultextension='.fm',
+                                               filetypes=(("All files",
+                                                           "*"), ),
+                                               initialfile='Untitled.fm')
+        if not merged_name:
             return
-        mixed_name = mixed_name.name
+        merged_name = merged_name.name
         counter = 1
         file_num = len(self.filenames)
         current_encrypt = False
-        with open(mixed_name, 'wb') as file:
+        with open(merged_name, 'wb') as file:
             if not self.is_direct_merge.get():
                 if self.current_header.has_password:
                     current_encrypt = True
@@ -375,13 +378,7 @@ class Root(Tk):
                     self.current_header.salt = current_salt
                     current_key = self.generate_key(self.current_password,
                                                     current_salt)
-                    new_header = copy(self.current_header)
-                    new_read_unit = len(current_key.encrypt(b'a' * read_unit))
-                    self.update_merge_dict_with_key(new_header.merge_dict,
-                                                    current_key, new_read_unit)
-                    file.write(pickle.dumps(new_header))
-                else:
-                    file.write(pickle.dumps(self.current_header))
+                file.write(pickle.dumps(self.current_header))
             for t in self.filenames:
                 current_file_size = os.path.getsize(t)
                 file_size_counter = 0
@@ -407,7 +404,7 @@ class Root(Tk):
                 counter += 1
         os.chdir(original_drc)
         self.msg.configure(
-            text=f'Merging is finished, please look at {mixed_name}')
+            text=f'Merging is finished, please look at {merged_name}')
 
     def choose_unzip_file_name(self):
         current_file_name = filedialog.askopenfilename(title="Choose files",
@@ -475,6 +472,8 @@ class Root(Tk):
                                                 current_header.salt)
                 current_read_unit = len(
                     current_key.encrypt(b'a' * current_read_unit))
+                self.update_merge_dict_with_key(current_header.merge_dict,
+                                                current_key, current_read_unit)
             current_dict = current_header.merge_dict
             current_dict_size = file.tell()
             unzip_ind = get_unzip_ind(current_dict)
