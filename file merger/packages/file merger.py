@@ -169,11 +169,13 @@ class Root(Tk):
                                                variable=self.is_direct_merge)
         self.direct_merge_button.place(x=700, y=20)
         self.current_header = header()
+        self.current_unzip_header = None
         self.browse_file_window = None
         self.set_password_window = None
         self.ask_password_window = None
         self.current_decrypted = False
         self.current_password = None
+        self.already_get_header = False
 
     def save_task(self):
         file_path = filedialog.asksaveasfile(title="Save current task",
@@ -202,7 +204,7 @@ class Root(Tk):
             self.choose_files_show.configure(state='disabled')
             for each in self.actual_filenames:
                 if os.path.isdir(each):
-                    self.filenames += get_all_files_in_dir(each)
+                    self.filenames.extend(get_all_files_in_dir(each))
                     header, current_path = os.path.split(each)
                     current_dict = parse_dir(current_path,
                                              header,
@@ -255,12 +257,14 @@ class Root(Tk):
         if not self.unzip_file_name:
             self.msg.configure(text='No file is selected to unzip')
             return
-        with open(self.unzip_file_name, 'rb') as file:
-            current_header = pickle.load(file)
-        if current_header.has_password and not self.current_decrypted:
-            self.ask_password(current_header)
+        if not self.already_get_header:
+            with open(self.unzip_file_name, 'rb') as file:
+                self.current_unzip_header = pickle.load(file)
+            self.already_get_header = True
+        if self.current_unzip_header.has_password and not self.current_decrypted:
+            self.ask_password(self.current_unzip_header)
         else:
-            self.open_browse_file_window(current_header)
+            self.open_browse_file_window(self.current_unzip_header)
 
     def open_browse_file_window(self, current_header):
         self.browse_filenames = []
@@ -378,7 +382,12 @@ class Root(Tk):
                     self.current_header.salt = current_salt
                     current_key = self.generate_key(self.current_password,
                                                     current_salt)
-                file.write(pickle.dumps(self.current_header))
+                    new_header = copy(self.current_header)
+                    new_header.merge_dict = current_key.encrypt(
+                        str(new_header.merge_dict).encode('utf-8'))
+                    file.write(pickle.dumps(new_header))
+                else:
+                    file.write(pickle.dumps(self.current_header))
             for t in self.filenames:
                 current_file_size = os.path.getsize(t)
                 file_size_counter = 0
@@ -414,6 +423,8 @@ class Root(Tk):
             self.unzip_file_name = current_file_name
             self.msg.configure(text=f'choose file {self.unzip_file_name}')
             self.current_decrypted = False
+            self.already_get_header = False
+            self.current_unzip_header = None
 
     def build_folders(self, current_dict):
         for each in current_dict:
@@ -451,12 +462,17 @@ class Root(Tk):
             self.msg.configure(text='No file is selected to unzip')
             self.update()
             return
-        with open(self.unzip_file_name, 'rb') as file:
-            current_header = pickle.load(file)
-        if current_header.has_password and not self.current_decrypted:
-            self.ask_password(current_header, mode=1, unzip_mode=mode)
+        if not self.already_get_header:
+            with open(self.unzip_file_name, 'rb') as file:
+                self.current_unzip_header = pickle.load(file)
+            self.already_get_header = True
+        if self.current_unzip_header.has_password and not self.current_decrypted:
+            self.ask_password(self.current_unzip_header,
+                              mode=1,
+                              unzip_mode=mode)
         else:
-            self.file_unzip_func(current_header, mode)
+            print(111, self.current_unzip_header.merge_dict)
+            self.file_unzip_func(self.current_unzip_header, mode)
 
     def file_unzip_func(self, current_header, mode=0):
         unzip_path = filedialog.askdirectory(
@@ -465,7 +481,7 @@ class Root(Tk):
             return
         os.chdir(unzip_path)
         with open(self.unzip_file_name, 'rb') as file:
-            current_header = pickle.load(file)
+            current_file_header = pickle.load(file)
             current_read_unit = read_unit
             if current_header.has_password:
                 current_key = self.generate_key(self.current_password,
@@ -652,6 +668,8 @@ class Root(Tk):
             self.ask_password_window.destroy()
             self.current_decrypted = True
             self.current_password = current_password
+            current_header.merge_dict = literal_eval(
+                current_key.decrypt(current_header.merge_dict).decode('utf-8'))
             if mode == 0:
                 self.open_browse_file_window(current_header)
             else:
@@ -673,11 +691,11 @@ class Root(Tk):
 
         new_read_unit = len(current_key.encrypt(b'a' * read_unit))
         with open(self.unzip_file_name, 'rb') as file:
-            current_header = pickle.load(file)
+            current_file_header = pickle.load(file)
             test_file = file.read(new_read_unit)
             try:
                 decrypt_file = current_key.decrypt(test_file)
-                return True
+                return current_key
             except:
                 return False
 
