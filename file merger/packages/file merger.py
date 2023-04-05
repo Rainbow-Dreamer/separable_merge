@@ -4,6 +4,7 @@ with open('config.json', encoding='utf-8') as f:
     current_settings = json.load(f)
 
 read_unit = current_settings['read_unit']
+kdf_iterations = current_settings['kdf_iterations']
 if read_unit.endswith('KB'):
     read_unit_num = int(read_unit.split('KB')[0])
     read_unit = read_unit_num * 1024
@@ -140,7 +141,7 @@ class Root(Tk):
         self.set_password_button = ttk.Button(self,
                                               text='Set password',
                                               command=self.set_password)
-        self.set_password_button.place(x=500, y=350)
+        self.set_password_button.place(x=580, y=20)
         self.filenames = []
         self.actual_filenames = []
         self.unzip_file_name = ''
@@ -164,7 +165,7 @@ class Root(Tk):
         self.direct_merge_button = Checkbutton(self,
                                                text='direct merge',
                                                variable=self.is_direct_merge)
-        self.direct_merge_button.place(x=570, y=20)
+        self.direct_merge_button.place(x=700, y=20)
         self.current_header = header()
         self.browse_file_window = None
         self.set_password_window = None
@@ -326,27 +327,31 @@ class Root(Tk):
                                                                 "*"), ))
             if filenames:
                 filenames = list(filenames)
-                self.filenames += filenames
-                self.actual_filenames += filenames
-                self.current_header.merge_dict.update({
-                    os.path.basename(each): os.path.getsize(each)
-                    for each in filenames
-                })
-                self.choose_files_show.configure(state='normal')
-                self.choose_files_show.insert(END, '\n'.join(filenames) + '\n')
-                self.choose_files_show.configure(state='disabled')
+                for each in filenames:
+                    current_filename = os.path.basename(each)
+                    if current_filename not in self.current_header.merge_dict:
+                        self.filenames.append(each)
+                        self.actual_filenames.append(each)
+                        self.choose_files_show.configure(state='normal')
+                        self.choose_files_show.insert(END, each + '\n')
+                        self.choose_files_show.configure(state='disabled')
+                        self.current_header.merge_dict[
+                            current_filename] = os.path.getsize(each)
         else:
             dirname = filedialog.askdirectory(title="Choose folders")
             if dirname:
-                self.filenames += get_all_files_in_dir(dirname)
                 header, current_path = os.path.split(dirname)
-                current_dict = parse_dir(current_path, header, get_size=True)
-                self.current_header.merge_dict.update(current_dict)
-                dirname = normal_path(dirname)
-                self.actual_filenames.append(dirname)
-                self.choose_files_show.configure(state='normal')
-                self.choose_files_show.insert(END, dirname + '\n')
-                self.choose_files_show.configure(state='disabled')
+                if current_path not in self.current_header.merge_dict:
+                    current_dict = parse_dir(current_path,
+                                             header,
+                                             get_size=True)
+                    self.current_header.merge_dict.update(current_dict)
+                    dirname = normal_path(dirname)
+                    self.actual_filenames.append(dirname)
+                    self.choose_files_show.configure(state='normal')
+                    self.choose_files_show.insert(END, dirname + '\n')
+                    self.choose_files_show.configure(state='disabled')
+                    self.filenames.extend(get_all_files_in_dir(dirname))
 
     def filemix(self):
         if not self.filenames:
@@ -661,7 +666,7 @@ class Root(Tk):
             kdf = PBKDF2HMAC(algorithm=hashes.SHA256(),
                              length=32,
                              salt=salt,
-                             iterations=390000)
+                             iterations=kdf_iterations)
             key = base64.urlsafe_b64encode(kdf.derive(password))
             current_key = Fernet(key)
         except:
@@ -686,7 +691,7 @@ class Root(Tk):
         kdf = PBKDF2HMAC(algorithm=hashes.SHA256(),
                          length=32,
                          salt=salt,
-                         iterations=390000)
+                         iterations=kdf_iterations)
         key = base64.urlsafe_b64encode(kdf.derive(password))
         f = Fernet(key)
         return f

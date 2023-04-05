@@ -1,11 +1,18 @@
-from tkinter import *
-from tkinter import ttk
-from tkinter import filedialog
-import os
-
 original_drc = os.getcwd()
 
-read_unit = 1024 * 16
+with open('config.json', encoding='utf-8') as f:
+    current_settings = json.load(f)
+
+read_unit = current_settings['read_unit']
+if read_unit.endswith('KB'):
+    read_unit_num = int(read_unit.split('KB')[0])
+    read_unit = read_unit_num * 1024
+elif read_unit.endswith('MB'):
+    read_unit_num = int(read_unit.split('MB')[0])
+    read_unit = read_unit_num * (1024**2)
+elif read_unit.endswith('GB'):
+    read_unit_num = int(read_unit.split('GB')[0])
+    read_unit = read_unit_num * (1024**3)
 
 
 class Root(Tk):
