@@ -87,8 +87,10 @@ class header:
 
     def __init__(self):
         self.merge_dict = {}
+        self.read_unit = read_unit
         self.has_password = False
         self.salt = ''
+        self.kdf_iterations = None
 
 
 class Root(Tk):
@@ -336,11 +338,13 @@ class Root(Tk):
                 for each in filenames:
                     current_filename = os.path.basename(each)
                     if current_filename not in self.current_header.merge_dict:
-                        self.filenames.append(each)
-                        self.actual_filenames.append(each)
+                        each = normal_path(each)
                         self.choose_files_show.configure(state='normal')
                         self.choose_files_show.insert(END, each + '\n')
                         self.choose_files_show.configure(state='disabled')
+                        self.update()
+                        self.filenames.append(each)
+                        self.actual_filenames.append(each)
                         self.current_header.merge_dict[
                             current_filename] = os.path.getsize(each)
         else:
@@ -348,16 +352,17 @@ class Root(Tk):
             if dirname:
                 header, current_path = os.path.split(dirname)
                 if current_path not in self.current_header.merge_dict:
+                    dirname = normal_path(dirname)
+                    self.choose_files_show.configure(state='normal')
+                    self.choose_files_show.insert(END, dirname + '\n')
+                    self.choose_files_show.configure(state='disabled')
+                    self.update()
+                    self.actual_filenames.append(dirname)
+                    self.filenames.extend(get_all_files_in_dir(dirname))
                     current_dict = parse_dir(current_path,
                                              header,
                                              get_size=True)
                     self.current_header.merge_dict.update(current_dict)
-                    dirname = normal_path(dirname)
-                    self.actual_filenames.append(dirname)
-                    self.choose_files_show.configure(state='normal')
-                    self.choose_files_show.insert(END, dirname + '\n')
-                    self.choose_files_show.configure(state='disabled')
-                    self.filenames.extend(get_all_files_in_dir(dirname))
 
     def file_merge(self):
         if not self.filenames:
@@ -378,13 +383,15 @@ class Root(Tk):
             if not self.is_direct_merge.get():
                 if self.current_header.has_password:
                     current_encrypt = True
-                    current_salt = self.generate_salt()
-                    self.current_header.salt = current_salt
-                    current_key = self.generate_key(self.current_password,
-                                                    current_salt)
                     new_header = copy(self.current_header)
+                    current_salt = self.generate_salt()
+                    new_header.salt = current_salt
+                    current_key = self.generate_key(self.current_password,
+                                                    current_salt,
+                                                    kdf_iterations)
                     new_header.merge_dict = current_key.encrypt(
                         str(new_header.merge_dict).encode('utf-8'))
+                    new_header.kdf_iterations = kdf_iterations
                     file.write(pickle.dumps(new_header))
                 else:
                     file.write(pickle.dumps(self.current_header))
@@ -471,7 +478,6 @@ class Root(Tk):
                               mode=1,
                               unzip_mode=mode)
         else:
-            print(111, self.current_unzip_header.merge_dict)
             self.file_unzip_func(self.current_unzip_header, mode)
 
     def file_unzip_func(self, current_header, mode=0):
@@ -484,12 +490,15 @@ class Root(Tk):
             current_file_header = pickle.load(file)
             current_read_unit = read_unit
             if current_header.has_password:
+                current_read_unit = current_header.read_unit
                 current_key = self.generate_key(self.current_password,
-                                                current_header.salt)
+                                                current_header.salt,
+                                                current_header.kdf_iterations)
                 current_read_unit = len(
                     current_key.encrypt(b'a' * current_read_unit))
                 self.update_merge_dict_with_key(current_header.merge_dict,
-                                                current_key, current_read_unit)
+                                                current_key, current_read_unit,
+                                                current_header.read_unit)
             current_dict = current_header.merge_dict
             current_dict_size = file.tell()
             unzip_ind = get_unzip_ind(current_dict)
@@ -663,7 +672,9 @@ class Root(Tk):
 
     def ask_password_func(self, current_header, mode, unzip_mode):
         current_password = self.ask_password_entry.get()
-        current_key = self.verify_key(current_password, current_header.salt)
+        current_key = self.verify_key(current_password, current_header.salt,
+                                      current_header.read_unit,
+                                      current_header.kdf_iterations)
         if current_key:
             self.ask_password_window.destroy()
             self.current_decrypted = True
@@ -677,7 +688,7 @@ class Root(Tk):
         else:
             self.msg.configure(text='incorrect password')
 
-    def verify_key(self, password, salt):
+    def verify_key(self, password, salt, read_unit, kdf_iterations):
         try:
             password = password.encode('utf-8')
             kdf = PBKDF2HMAC(algorithm=hashes.SHA256(),
@@ -703,7 +714,7 @@ class Root(Tk):
         salt = os.urandom(16)
         return salt
 
-    def generate_key(self, password, salt):
+    def generate_key(self, password, salt, kdf_iterations):
         password = password.encode('utf-8')
         kdf = PBKDF2HMAC(algorithm=hashes.SHA256(),
                          length=32,
@@ -714,22 +725,22 @@ class Root(Tk):
         return f
 
     def get_new_file_size_with_key(self, current_key, current_file_size,
-                                   new_read_unit):
+                                   new_read_unit, read_unit):
         read_times, remain_size = divmod(current_file_size, read_unit)
         new_file_size = read_times * new_read_unit + len(
             current_key.encrypt(b'a' * remain_size))
         return new_file_size
 
     def update_merge_dict_with_key(self, current_dict, current_key,
-                                   new_read_unit):
+                                   new_read_unit, read_unit):
         for key, value in current_dict.items():
             if isinstance(value, list):
                 for each in value:
                     self.update_merge_dict_with_key(each, current_key,
-                                                    new_read_unit)
+                                                    new_read_unit, read_unit)
             else:
                 current_dict[key] = self.get_new_file_size_with_key(
-                    current_key, value, new_read_unit)
+                    current_key, value, new_read_unit, read_unit)
 
 
 if __name__ == '__main__':
