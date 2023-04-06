@@ -176,6 +176,7 @@ class Root(Tk):
         self.set_password_window = None
         self.ask_password_window = None
         self.current_decrypted = False
+        self.current_merge_dict_update = False
         self.current_password = None
         self.already_get_header = False
 
@@ -430,6 +431,7 @@ class Root(Tk):
             self.unzip_file_name = current_file_name
             self.msg.configure(text=f'choose file {self.unzip_file_name}')
             self.current_decrypted = False
+            self.current_merge_dict_update = False
             self.already_get_header = False
             self.current_unzip_header = None
 
@@ -496,9 +498,15 @@ class Root(Tk):
                                                 current_header.kdf_iterations)
                 current_read_unit = len(
                     current_key.encrypt(b'a' * current_read_unit))
-                self.update_merge_dict_with_key(current_header.merge_dict,
-                                                current_key, current_read_unit,
-                                                current_header.read_unit)
+                self.msg.configure(
+                    text='update header with password, please wait')
+                self.update()
+                if not self.current_merge_dict_update:
+                    self.update_merge_dict_with_key(current_header.merge_dict,
+                                                    current_key,
+                                                    current_read_unit,
+                                                    current_header.read_unit)
+                    self.current_merge_dict_update = True
             current_dict = current_header.merge_dict
             current_dict_size = file.tell()
             unzip_ind = get_unzip_ind(current_dict)
@@ -526,11 +534,12 @@ class Root(Tk):
                                     f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                                 )
                                 self.msg.update()
-                        remain_part = file.read(remain_size)
-                        if current_header.has_password:
-                            remain_part = current_key.decrypt(remain_part)
-                        f.write(remain_part)
-                        write_counter += remain_size
+                        if remain_size > 0:
+                            remain_part = file.read(remain_size)
+                            if current_header.has_password:
+                                remain_part = current_key.decrypt(remain_part)
+                            f.write(remain_part)
+                            write_counter += remain_size
                         if current_file_size:
                             self.msg.configure(
                                 text=
@@ -592,11 +601,12 @@ class Root(Tk):
                                     f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                                 )
                                 self.msg.update()
-                        remain_part = file.read(remain_size)
-                        if current_header.has_password:
-                            remain_part = current_key.decrypt(remain_part)
-                        f.write(remain_part)
-                        write_counter += remain_size
+                        if remain_size > 0:
+                            remain_part = file.read(remain_size)
+                            if current_header.has_password:
+                                remain_part = current_key.decrypt(remain_part)
+                            f.write(remain_part)
+                            write_counter += remain_size
                         if current_file_size:
                             self.msg.configure(
                                 text=
@@ -672,15 +682,16 @@ class Root(Tk):
 
     def ask_password_func(self, current_header, mode, unzip_mode):
         current_password = self.ask_password_entry.get()
-        current_key = self.verify_key(current_password, current_header.salt,
-                                      current_header.read_unit,
-                                      current_header.kdf_iterations)
-        if current_key:
+        current_result = self.verify_key(current_password, current_header.salt,
+                                         current_header.read_unit,
+                                         current_header.kdf_iterations,
+                                         current_header.merge_dict)
+        if current_result:
+            current_key, merge_dict = current_result
             self.ask_password_window.destroy()
             self.current_decrypted = True
             self.current_password = current_password
-            current_header.merge_dict = literal_eval(
-                current_key.decrypt(current_header.merge_dict).decode('utf-8'))
+            current_header.merge_dict = merge_dict
             if mode == 0:
                 self.open_browse_file_window(current_header)
             else:
@@ -688,7 +699,8 @@ class Root(Tk):
         else:
             self.msg.configure(text='incorrect password')
 
-    def verify_key(self, password, salt, read_unit, kdf_iterations):
+    def verify_key(self, password, salt, read_unit, kdf_iterations,
+                   merge_dict):
         try:
             password = password.encode('utf-8')
             kdf = PBKDF2HMAC(algorithm=hashes.SHA256(),
@@ -700,15 +712,12 @@ class Root(Tk):
         except:
             return False
 
-        new_read_unit = len(current_key.encrypt(b'a' * read_unit))
-        with open(self.unzip_file_name, 'rb') as file:
-            current_file_header = pickle.load(file)
-            test_file = file.read(new_read_unit)
-            try:
-                decrypt_file = current_key.decrypt(test_file)
-                return current_key
-            except:
-                return False
+        try:
+            merge_dict = literal_eval(
+                current_key.decrypt(merge_dict).decode('utf-8'))
+            return current_key, merge_dict
+        except:
+            return False
 
     def generate_salt(self):
         salt = os.urandom(16)
@@ -726,9 +735,12 @@ class Root(Tk):
 
     def get_new_file_size_with_key(self, current_key, current_file_size,
                                    new_read_unit, read_unit):
+        if current_file_size == 0:
+            return 0
         read_times, remain_size = divmod(current_file_size, read_unit)
-        new_file_size = read_times * new_read_unit + len(
-            current_key.encrypt(b'a' * remain_size))
+        new_file_size = read_times * new_read_unit
+        if remain_size > 0:
+            new_file_size += len(current_key.encrypt(b'a' * remain_size))
         return new_file_size
 
     def update_merge_dict_with_key(self, current_dict, current_key,
