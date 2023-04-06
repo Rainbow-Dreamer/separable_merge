@@ -116,7 +116,7 @@ class Root(Tk):
         self.clear_choose_files = ttk.Button(self,
                                              text='Clear',
                                              command=self.clear_files)
-        self.choose_files_show = Text(self, height=17, width=95, wrap='none')
+        self.choose_files_show = Text(self, height=13, width=83, wrap='none')
         self.choose_files_show.configure(state='disabled')
         self.choose_files.place(x=0, y=20)
         self.choose_file_list_bar = ttk.Scrollbar(self, orient="vertical")
@@ -638,7 +638,7 @@ class Root(Tk):
         self.set_password_entry.place(x=20, y=20)
         self.set_password_label = ttk.Label(self.set_password_window,
                                             text='enter password here')
-        self.set_password_label.place(x=180, y=20)
+        self.set_password_label.place(x=190, y=20)
         self.set_password_func_button = ttk.Button(
             self.set_password_window,
             text='set password',
@@ -672,7 +672,7 @@ class Root(Tk):
         self.ask_password_entry.place(x=20, y=20)
         self.ask_password_label = ttk.Label(self.ask_password_window,
                                             text='enter password here')
-        self.ask_password_label.place(x=180, y=20)
+        self.ask_password_label.place(x=190, y=20)
         self.ask_password_func_button = ttk.Button(
             self.ask_password_window,
             text='try password',
