@@ -5,7 +5,12 @@ import os
 import sys
 import pickle
 from ast import literal_eval
-import tkfilebrowser
+from copy import deepcopy as copy
+import json
+import base64
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 abs_path = os.path.dirname(os.path.abspath(__file__))
 os.chdir(abs_path)
