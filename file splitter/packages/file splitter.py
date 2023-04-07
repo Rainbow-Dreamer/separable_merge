@@ -34,7 +34,7 @@ class Root(Tk):
         self.choose_file_size_label = ttk.Label(self, text='File size:')
         self.split_into_num = ttk.Label(
             self, text='How many portions do you want to cut into evenly?')
-        self.split_into_num_text = Text(self, height=2, width=30)
+        self.split_into_num_text = ttk.Entry(self, width=10)
         self.fixed_split_size = ttk.Label(self, text='Fixed portion size')
         self.split1_button = ttk.Button(
             self,
@@ -47,21 +47,21 @@ class Root(Tk):
         self.clear_choose_files = ttk.Button(self,
                                              text='Clear',
                                              command=self.clear_files)
-        self.fixed_split_size_text = Text(self, height=2, width=95)
+        self.fixed_split_size_text = ttk.Entry(self, width=10)
         self.choose_files_show = Text(self, height=3, width=95)
         self.choose_files_show.configure(state='disabled')
         self.choose_files.place(x=0, y=20)
         self.choose_files_show.place(x=0, y=50)
-        self.choose_file_size_label.place(x=0, y=100)
-        self.choose_files_size_show = Text(self, height=3, width=95)
-        self.choose_files_size_show.place(x=0, y=125)
-        self.split_into_num.place(x=0, y=180)
-        self.split_into_num_text.place(x=0, y=210)
-        self.fixed_split_size.place(x=0, y=260)
-        self.fixed_split_size_text.place(x=0, y=300)
+        self.choose_file_size_label.place(x=0, y=110)
+        self.choose_files_size_show = ttk.Label(self, text='')
+        self.choose_files_size_show.place(x=60, y=110)
+        self.split_into_num.place(x=0, y=140)
+        self.split_into_num_text.place(x=310, y=140)
+        self.fixed_split_size.place(x=0, y=210)
+        self.fixed_split_size_text.place(x=120, y=210)
         self.clear_choose_files.place(x=300, y=20)
-        self.split1_button.place(x=320, y=180)
-        self.split2_button.place(x=300, y=260)
+        self.split1_button.place(x=400, y=140)
+        self.split2_button.place(x=210, y=210)
         self.msg = ttk.Label(self, text='Currently no actions')
         self.msg.place(x=0, y=350)
         self.split_file_size = None
@@ -69,14 +69,14 @@ class Root(Tk):
             self,
             text='Calculate average portion size',
             command=self.calculate_size)
-        self.calculate_split_into_size.place(x=450, y=180)
+        self.calculate_split_into_size.place(x=500, y=140)
         self.split_file_size_num = None
         self.split_into_size = ttk.Label(self, text='Average portion size:')
-        self.split_into_size.place(x=260, y=220)
+        self.split_into_size.place(x=0, y=170)
 
     def calculate_size(self):
         if self.split_file_size_num is not None:
-            split_into_num = self.split_into_num_text.get('1.0', 'end-1c')
+            split_into_num = self.split_into_num_text.get()
             try:
                 split_into_num = int(split_into_num)
             except:
@@ -89,7 +89,7 @@ class Root(Tk):
                 return
             self.split_into_size.configure(
                 text=
-                f'Average portion size: {self.convert_size(self.split_file_size_num/split_into_num)}'
+                f'Average portion size:  {self.convert_size(self.split_file_size_num/split_into_num)}'
             )
             self.msg.configure(text='Calculate finished')
         else:
@@ -114,7 +114,7 @@ class Root(Tk):
         self.split_file_size = None
         self.split_file_size_num = None
         self.split_into_size.configure(text='Average portion size:')
-        self.choose_files_size_show.delete('1.0', END)
+        self.choose_files_size_show.configure(text='')
 
     def choose_split_files(self):
         split_file_name = filedialog.askopenfilename(title="Choose file",
@@ -129,8 +129,7 @@ class Root(Tk):
         self.choose_files_show.configure(state='disabled')
         self.split_file_size_num = os.path.getsize(self.split_file_name)
         self.split_file_size = self.convert_size(self.split_file_size_num)
-        self.choose_files_size_show.delete('1.0', END)
-        self.choose_files_size_show.insert(END, self.split_file_size)
+        self.choose_files_size_show.configure(text=self.split_file_size)
 
     def file_split_by_chunks(self, file, f, split_size, i, length):
         read_times, remain_size = divmod(split_size, read_unit)
@@ -162,7 +161,7 @@ class Root(Tk):
             return
         os.chdir(file_path)
         if mode == 0:
-            split_into_num = self.split_into_num_text.get('1.0', 'end-1c')
+            split_into_num = self.split_into_num_text.get()
             try:
                 split_into_num = int(split_into_num)
             except:
@@ -190,8 +189,7 @@ class Root(Tk):
                                                       length - counter, i,
                                                       split_into_num)
         elif mode == 1:
-            fixed_size = self.fixed_split_size_text.get('1.0',
-                                                        'end-1c').split()
+            fixed_size = self.fixed_split_size_text.get().split()
             try:
                 fixed_size_num, unit = float(fixed_size[0]), fixed_size[1]
             except:
