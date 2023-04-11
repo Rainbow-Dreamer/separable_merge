@@ -1,5 +1,4 @@
 import gzip
-import shutil
 import threading
 
 original_drc = os.getcwd()
@@ -109,7 +108,6 @@ class Root(Tk):
         except:
             pass
         self.title('File Merger and Splitter')
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.choose_files = ttk.Button(self,
                                        text='Add files',
                                        command=self.choose_merge_files)
@@ -192,16 +190,10 @@ class Root(Tk):
         self.current_merge_dict_update = False
         self.current_password = None
         self.already_get_header = False
-        self.decompress_file_temp = None
 
     def show(self, text):
         self.msg.configure(text=text)
         self.msg.update()
-
-    def on_close(self):
-        if self.decompress_file_temp is not None:
-            os.remove(self.decompress_file_temp)
-        self.destroy()
 
     def save_task(self):
         file_path = filedialog.asksaveasfile(title="Save current task",
@@ -284,7 +276,8 @@ class Root(Tk):
             self.show('No file is selected to unzip')
             return
         if not self.already_get_header:
-            with open(self.unzip_file_name, 'rb') as file:
+            with (open(self.unzip_file_name, 'rb') if not self.current_is_zip
+                  else gzip.open(self.unzip_file_name, 'rb')) as file:
                 try:
                     self.current_unzip_header = pickle.load(file)
                 except:
@@ -422,7 +415,9 @@ class Root(Tk):
         counter = 1
         file_num = len(self.filenames)
         current_encrypt = False
-        with open(merged_name, 'wb') as file:
+        with (open(merged_name, 'wb')
+              if not self.is_compress.get() else gzip.open(
+                  merged_name, 'wb', compresslevel=compresslevel)) as file:
             if not self.is_direct_merge.get():
                 if self.current_header.has_password:
                     current_encrypt = True
@@ -459,24 +454,6 @@ class Root(Tk):
                 file.flush()
                 os.fsync(file.fileno())
                 counter += 1
-        if self.is_compress.get():
-            current_thread = threading.Thread(target=self.compress_file,
-                                              args=(merged_name, ))
-            current_thread.start()
-            return
-        os.chdir(original_drc)
-        self.show(f'Merging is finished, please look at {merged_name}')
-
-    def compress_file(self, merged_name):
-        self.show('compress files, please wait ...')
-        with open(merged_name, 'rb') as file:
-            current_compress_name = f'{merged_name}.gz'
-            with gzip.open(current_compress_name,
-                           'wb',
-                           compresslevel=compresslevel) as file2:
-                shutil.copyfileobj(file, file2, length=read_unit)
-        os.remove(merged_name)
-        os.rename(current_compress_name, merged_name)
         os.chdir(original_drc)
         self.show(f'Merging is finished, please look at {merged_name}')
 
@@ -485,42 +462,21 @@ class Root(Tk):
             current_file_name = filedialog.askopenfilename(
                 title="Choose files", filetypes=(("All files", "*"), ))
         if current_file_name:
-            if self.decompress_file_temp is not None:
-                os.remove(self.decompress_file_temp)
-                self.decompress_file_temp = None
             self.unzip_file_name = current_file_name
             self.current_decrypted = False
             self.current_merge_dict_update = False
             self.already_get_header = False
             self.current_unzip_header = None
-            current_is_zip = False
+            self.current_is_zip = False
             with gzip.open(self.unzip_file_name, 'rb') as f:
                 try:
                     f.read(1)
-                    current_is_zip = True
+                    self.current_is_zip = True
                 except OSError:
                     pass
-            if current_is_zip:
-                current_thread = threading.Thread(target=self.decompress_file,
-                                                  args=(outer, ))
-                current_thread.start()
-                return
             self.show(f'choose file {self.unzip_file_name}')
             if outer:
                 self.browse_files_func()
-
-    def decompress_file(self, outer):
-        self.show('decompress file, please wait ...')
-        with gzip.open(self.unzip_file_name, 'rb',
-                       compresslevel=compresslevel) as file:
-            with open(f'{self.unzip_file_name}.temp', 'wb') as file2:
-                shutil.copyfileobj(file, file2, length=read_unit)
-        self.show('')
-        self.unzip_file_name = f'{self.unzip_file_name}.temp'
-        self.decompress_file_temp = self.unzip_file_name
-        self.show(f'choose file {self.unzip_file_name}')
-        if outer:
-            self.browse_files_func()
 
     def build_folders(self, current_dict):
         for each in current_dict:
@@ -565,7 +521,8 @@ class Root(Tk):
             if not self.current_selected_files:
                 return
         if not self.already_get_header:
-            with open(self.unzip_file_name, 'rb') as file:
+            with (open(self.unzip_file_name, 'rb') if not self.current_is_zip
+                  else gzip.open(self.unzip_file_name, 'rb')) as file:
                 try:
                     self.current_unzip_header = pickle.load(file)
                 except:
@@ -601,7 +558,8 @@ class Root(Tk):
 
     def file_unzip_func_helper(self, current_header, current_key,
                                current_read_unit, mode, unzip_path):
-        with open(self.unzip_file_name, 'rb') as file:
+        with (open(self.unzip_file_name, 'rb') if not self.current_is_zip else
+              gzip.open(self.unzip_file_name, 'rb')) as file:
             try:
                 current_file_header = pickle.load(file)
             except:
