@@ -1,3 +1,7 @@
+import gzip
+import shutil
+import threading
+
 original_drc = os.getcwd()
 
 with open('config.json', encoding='utf-8') as f:
@@ -14,6 +18,8 @@ elif read_unit.endswith('MB'):
 elif read_unit.endswith('GB'):
     read_unit_num = int(read_unit.split('GB')[0])
     read_unit = read_unit_num * (1024**3)
+
+compresslevel = current_settings['compresslevel']
 
 
 def normal_path(path):
@@ -103,6 +109,7 @@ class Root(Tk):
         except:
             pass
         self.title('File Merger and Splitter')
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.choose_files = ttk.Button(self,
                                        text='Add files',
                                        command=self.choose_merge_files)
@@ -164,12 +171,18 @@ class Root(Tk):
                                              text='Import task',
                                              command=self.import_task)
         self.import_task_button.place(x=500, y=450)
-        self.is_direct_merge = IntVar()
-        self.is_direct_merge.set(0)
+        self.is_direct_merge = BooleanVar()
+        self.is_direct_merge.set(False)
         self.direct_merge_button = Checkbutton(self,
                                                text='direct merge',
                                                variable=self.is_direct_merge)
         self.direct_merge_button.place(x=700, y=20)
+        self.is_compress = BooleanVar()
+        self.is_compress.set(False)
+        self.compress_button = Checkbutton(self,
+                                           text='compress',
+                                           variable=self.is_compress)
+        self.compress_button.place(x=700, y=50)
         self.current_header = header()
         self.current_unzip_header = None
         self.browse_file_window = None
@@ -179,6 +192,16 @@ class Root(Tk):
         self.current_merge_dict_update = False
         self.current_password = None
         self.already_get_header = False
+        self.decompress_file_temp = None
+
+    def show(self, text):
+        self.msg.configure(text=text)
+        self.msg.update()
+
+    def on_close(self):
+        if self.decompress_file_temp is not None:
+            os.remove(self.decompress_file_temp)
+        self.destroy()
 
     def save_task(self):
         file_path = filedialog.asksaveasfile(title="Save current task",
@@ -187,9 +210,7 @@ class Root(Tk):
         if file_path:
             with open(file_path.name, 'w') as f:
                 f.write(str(self.actual_filenames))
-                self.msg.configure(
-                    text=f'Successfully save task file {file_path.name}')
-                self.msg.update()
+                self.show(f'Successfully save task file {file_path.name}')
 
     def import_task(self, task_file_name=None):
         if not task_file_name:
@@ -204,22 +225,24 @@ class Root(Tk):
             self.choose_files_show.delete('1.0', END)
             self.choose_files_show.insert(END,
                                           '\n'.join(self.actual_filenames))
+            self.show('update file list, please wait ...')
             self.choose_files_show.configure(state='disabled')
-            for each in self.actual_filenames:
-                if os.path.isdir(each):
-                    self.filenames.extend(get_all_files_in_dir(each))
-                    header, current_path = os.path.split(each)
-                    current_dict = parse_dir(current_path,
-                                             header,
-                                             get_size=True)
-                    self.current_header.merge_dict.update(current_dict)
-                elif os.path.isfile(each):
-                    self.filenames.append(each)
-                    self.current_header.merge_dict[os.path.basename(
-                        each)] = os.path.getsize(each)
-            self.msg.configure(
-                text=f'Successfully import task file {task_file_name}')
-            self.msg.update()
+            current_thread = threading.Thread(
+                target=self.import_task_add_files, args=(task_file_name, ))
+            current_thread.start()
+
+    def import_task_add_files(self, task_file_name):
+        for each in self.actual_filenames:
+            if os.path.isdir(each):
+                self.filenames.extend(get_all_files_in_dir(each))
+                header, current_path = os.path.split(each)
+                current_dict = parse_dir(current_path, header, get_size=True)
+                self.current_header.merge_dict.update(current_dict)
+            elif os.path.isfile(each):
+                self.filenames.append(each)
+                self.current_header.merge_dict[os.path.basename(
+                    each)] = os.path.getsize(each)
+        self.show(f'Successfully import task file {task_file_name}')
 
     def convert_size(self, size):
         size /= 1024
@@ -258,16 +281,22 @@ class Root(Tk):
             self.browse_file_window.focus_force()
             return
         if not self.unzip_file_name:
-            self.msg.configure(text='No file is selected to unzip')
+            self.show('No file is selected to unzip')
             return
         if not self.already_get_header:
             with open(self.unzip_file_name, 'rb') as file:
-                self.current_unzip_header = pickle.load(file)
+                try:
+                    self.current_unzip_header = pickle.load(file)
+                except:
+                    self.show('Error: cannot find header')
+                    return
             self.already_get_header = True
         if self.current_unzip_header.has_password and not self.current_decrypted:
             self.ask_password(self.current_unzip_header)
-        else:
-            self.open_browse_file_window(self.current_unzip_header)
+            return
+        if self.current_unzip_header.has_password and not self.current_merge_dict_update:
+            return
+        self.open_browse_file_window(self.current_unzip_header)
 
     def open_browse_file_window(self, current_header):
         self.browse_filenames = []
@@ -314,7 +343,7 @@ class Root(Tk):
         self.file_path_dict = {}
         self.treeview_build_folders(current_dict)
         os.chdir(original_drc)
-        self.msg.configure(text='Successfully open file list')
+        self.show(f'Successfully open file list of {self.unzip_file_name}')
         self.select_file_unzip = ttk.Button(
             self.browse_file_window,
             text='Unzip the selected files and folders',
@@ -335,39 +364,52 @@ class Root(Tk):
                                                     filetypes=(("All files",
                                                                 "*"), ))
             if filenames:
-                filenames = list(filenames)
-                for each in filenames:
-                    current_filename = os.path.basename(each)
-                    if current_filename not in self.current_header.merge_dict:
-                        each = normal_path(each)
-                        self.choose_files_show.configure(state='normal')
-                        self.choose_files_show.insert(END, each + '\n')
-                        self.choose_files_show.configure(state='disabled')
-                        self.update()
-                        self.filenames.append(each)
-                        self.actual_filenames.append(each)
-                        self.current_header.merge_dict[
-                            current_filename] = os.path.getsize(each)
+                current_thread = threading.Thread(target=self.add_files,
+                                                  args=(filenames, ))
+                current_thread.start()
+
         else:
             dirname = filedialog.askdirectory(title="Choose folders")
             if dirname:
-                header, current_path = os.path.split(dirname)
-                if current_path not in self.current_header.merge_dict:
-                    dirname = normal_path(dirname)
-                    self.choose_files_show.configure(state='normal')
-                    self.choose_files_show.insert(END, dirname + '\n')
-                    self.choose_files_show.configure(state='disabled')
-                    self.update()
-                    self.actual_filenames.append(dirname)
-                    self.filenames.extend(get_all_files_in_dir(dirname))
-                    current_dict = parse_dir(current_path,
-                                             header,
-                                             get_size=True)
-                    self.current_header.merge_dict.update(current_dict)
+                current_thread = threading.Thread(target=self.add_directory,
+                                                  args=(dirname, ))
+                current_thread.start()
+
+    def add_files(self, filenames):
+        self.show('update file list, please wait ...')
+        filenames = list(filenames)
+        for each in filenames:
+            current_filename = os.path.basename(each)
+            if current_filename not in self.current_header.merge_dict:
+                each = normal_path(each)
+                self.choose_files_show.configure(state='normal')
+                self.choose_files_show.insert(END, each + '\n')
+                self.choose_files_show.configure(state='disabled')
+                self.update()
+                self.filenames.append(each)
+                self.actual_filenames.append(each)
+                self.current_header.merge_dict[
+                    current_filename] = os.path.getsize(each)
+        self.show(f'successfully added {len(filenames)} files')
+
+    def add_directory(self, dirname):
+        self.show('update file list, please wait ...')
+        header, current_path = os.path.split(dirname)
+        if current_path not in self.current_header.merge_dict:
+            dirname = normal_path(dirname)
+            self.choose_files_show.configure(state='normal')
+            self.choose_files_show.insert(END, dirname + '\n')
+            self.choose_files_show.configure(state='disabled')
+            self.update()
+            self.actual_filenames.append(dirname)
+            self.filenames.extend(get_all_files_in_dir(dirname))
+            current_dict = parse_dir(current_path, header, get_size=True)
+            self.current_header.merge_dict.update(current_dict)
+        self.show(f'successfully added directory {dirname}')
 
     def file_merge(self):
         if not self.filenames:
-            self.msg.configure(text='The merge file list is empty')
+            self.show('The merge file list is empty')
             return
         merged_name = filedialog.asksaveasfile(title="Save merged file",
                                                defaultextension='.fm',
@@ -408,32 +450,77 @@ class Root(Tk):
                             current_chunk = current_key.encrypt(current_chunk)
                         file.write(current_chunk)
                         file_size_counter += current_length
-                        self.msg.configure(
-                            text=
+                        self.show(
                             f'{counter}/{file_num} Merging {round((file_size_counter/current_file_size)*100, 3):.3f}% of file {t}'
                         )
-                        self.msg.update()
                     else:
                         break
                 f.close()
                 file.flush()
                 os.fsync(file.fileno())
                 counter += 1
+        if self.is_compress.get():
+            current_thread = threading.Thread(target=self.compress_file,
+                                              args=(merged_name, ))
+            current_thread.start()
+            return
         os.chdir(original_drc)
-        self.msg.configure(
-            text=f'Merging is finished, please look at {merged_name}')
+        self.show(f'Merging is finished, please look at {merged_name}')
 
-    def choose_unzip_file_name(self):
-        current_file_name = filedialog.askopenfilename(title="Choose files",
-                                                       filetypes=(("All files",
-                                                                   "*"), ))
+    def compress_file(self, merged_name):
+        self.show('compress files, please wait ...')
+        with open(merged_name, 'rb') as file:
+            current_compress_name = f'{merged_name}.gz'
+            with gzip.open(current_compress_name,
+                           'wb',
+                           compresslevel=compresslevel) as file2:
+                shutil.copyfileobj(file, file2, length=read_unit)
+        os.remove(merged_name)
+        os.rename(current_compress_name, merged_name)
+        os.chdir(original_drc)
+        self.show(f'Merging is finished, please look at {merged_name}')
+
+    def choose_unzip_file_name(self, current_file_name=None, outer=False):
+        if current_file_name is None:
+            current_file_name = filedialog.askopenfilename(
+                title="Choose files", filetypes=(("All files", "*"), ))
         if current_file_name:
+            if self.decompress_file_temp is not None:
+                os.remove(self.decompress_file_temp)
+                self.decompress_file_temp = None
             self.unzip_file_name = current_file_name
-            self.msg.configure(text=f'choose file {self.unzip_file_name}')
             self.current_decrypted = False
             self.current_merge_dict_update = False
             self.already_get_header = False
             self.current_unzip_header = None
+            current_is_zip = False
+            with gzip.open(self.unzip_file_name, 'rb') as f:
+                try:
+                    f.read(1)
+                    current_is_zip = True
+                except OSError:
+                    pass
+            if current_is_zip:
+                current_thread = threading.Thread(target=self.decompress_file,
+                                                  args=(outer, ))
+                current_thread.start()
+                return
+            self.show(f'choose file {self.unzip_file_name}')
+            if outer:
+                self.browse_files_func()
+
+    def decompress_file(self, outer):
+        self.show('decompress file, please wait ...')
+        with gzip.open(self.unzip_file_name, 'rb',
+                       compresslevel=compresslevel) as file:
+            with open(f'{self.unzip_file_name}.temp', 'wb') as file2:
+                shutil.copyfileobj(file, file2, length=read_unit)
+        self.show('')
+        self.unzip_file_name = f'{self.unzip_file_name}.temp'
+        self.decompress_file_temp = self.unzip_file_name
+        self.show(f'choose file {self.unzip_file_name}')
+        if outer:
+            self.browse_files_func()
 
     def build_folders(self, current_dict):
         for each in current_dict:
@@ -468,19 +555,31 @@ class Root(Tk):
 
     def file_unzip(self, mode=0):
         if not self.unzip_file_name:
-            self.msg.configure(text='No file is selected to unzip')
-            self.update()
+            self.show('No file is selected to unzip')
             return
+        if mode == 1:
+            self.current_selected_files = [
+                self.browse_file_list.item(each, 'text')
+                for each in self.browse_file_list.selection()
+            ]
+            if not self.current_selected_files:
+                return
         if not self.already_get_header:
             with open(self.unzip_file_name, 'rb') as file:
-                self.current_unzip_header = pickle.load(file)
+                try:
+                    self.current_unzip_header = pickle.load(file)
+                except:
+                    self.show('Error: cannot find header')
+                    return
             self.already_get_header = True
         if self.current_unzip_header.has_password and not self.current_decrypted:
             self.ask_password(self.current_unzip_header,
                               mode=1,
                               unzip_mode=mode)
-        else:
-            self.file_unzip_func(self.current_unzip_header, mode)
+            return
+        if self.current_unzip_header.has_password and not self.current_merge_dict_update:
+            return
+        self.file_unzip_func(self.current_unzip_header, mode)
 
     def file_unzip_func(self, current_header, mode=0):
         unzip_path = filedialog.askdirectory(
@@ -488,25 +587,26 @@ class Root(Tk):
         if not unzip_path:
             return
         os.chdir(unzip_path)
+        current_read_unit = read_unit
+        current_key = None
+        if current_header.has_password:
+            current_read_unit = current_header.read_unit
+            current_key = self.generate_key(self.current_password,
+                                            current_header.salt,
+                                            current_header.kdf_iterations)
+            current_read_unit = len(
+                current_key.encrypt(b'a' * current_read_unit))
+        self.file_unzip_func_helper(current_header, current_key,
+                                    current_read_unit, mode, unzip_path)
+
+    def file_unzip_func_helper(self, current_header, current_key,
+                               current_read_unit, mode, unzip_path):
         with open(self.unzip_file_name, 'rb') as file:
-            current_file_header = pickle.load(file)
-            current_read_unit = read_unit
-            if current_header.has_password:
-                current_read_unit = current_header.read_unit
-                current_key = self.generate_key(self.current_password,
-                                                current_header.salt,
-                                                current_header.kdf_iterations)
-                current_read_unit = len(
-                    current_key.encrypt(b'a' * current_read_unit))
-                self.msg.configure(
-                    text='update header with password, please wait')
-                self.update()
-                if not self.current_merge_dict_update:
-                    self.update_merge_dict_with_key(current_header.merge_dict,
-                                                    current_key,
-                                                    current_read_unit,
-                                                    current_header.read_unit)
-                    self.current_merge_dict_update = True
+            try:
+                current_file_header = pickle.load(file)
+            except:
+                self.show('Error: cannot find header')
+                return
             current_dict = current_header.merge_dict
             current_dict_size = file.tell()
             unzip_ind = get_unzip_ind(current_dict)
@@ -529,11 +629,9 @@ class Root(Tk):
                             f.write(current_chunk)
                             write_counter += current_read_unit
                             if current_file_size:
-                                self.msg.configure(
-                                    text=
+                                self.show(
                                     f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                                 )
-                                self.msg.update()
                         if remain_size > 0:
                             remain_part = file.read(remain_size)
                             if current_header.has_password:
@@ -541,21 +639,13 @@ class Root(Tk):
                             f.write(remain_part)
                             write_counter += remain_size
                         if current_file_size:
-                            self.msg.configure(
-                                text=
+                            self.show(
                                 f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                             )
-                            self.msg.update()
             elif mode == 1:
-                current_selected_files = [
-                    self.browse_file_list.item(each, 'text')
-                    for each in self.browse_file_list.selection()
-                ]
-                if not current_selected_files:
-                    return
                 select_file_ind = []
                 unzip_filenames = []
-                for i in current_selected_files:
+                for i in self.current_selected_files:
                     if i in filenames:
                         select_file_ind.append(filenames.index(i))
                         current_filename = os.path.split(i)[1]
@@ -596,11 +686,9 @@ class Root(Tk):
                             f.write(current_chunk)
                             write_counter += current_read_unit
                             if current_file_size:
-                                self.msg.configure(
-                                    text=
+                                self.show(
                                     f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                                 )
-                                self.msg.update()
                         if remain_size > 0:
                             remain_part = file.read(remain_size)
                             if current_header.has_password:
@@ -608,16 +696,26 @@ class Root(Tk):
                             f.write(remain_part)
                             write_counter += remain_size
                         if current_file_size:
-                            self.msg.configure(
-                                text=
+                            self.show(
                                 f'{each+1}/{length} Unzipping {round((write_counter/current_file_size)*100, 3):.3f}% of file {current_filename}'
                             )
-                            self.msg.update()
-        self.msg.configure(
-            text=
+        self.show(
             f'Unzipping is finished, please look at the directory {unzip_path}'
         )
         os.chdir(original_drc)
+
+    def update_header(self, current_header, current_key, current_read_unit,
+                      mode, unzip_mode):
+        self.show('update header with password, please wait ...')
+        self.update_merge_dict_with_key(current_header.merge_dict, current_key,
+                                        current_read_unit,
+                                        current_header.read_unit)
+        self.current_merge_dict_update = True
+        self.show('update header finished')
+        if mode == 0:
+            self.open_browse_file_window(current_header)
+        else:
+            self.file_unzip_func(current_header, unzip_mode)
 
     def set_password(self):
         if self.set_password_window is not None and self.set_password_window.winfo_exists(
@@ -692,12 +790,16 @@ class Root(Tk):
             self.current_decrypted = True
             self.current_password = current_password
             current_header.merge_dict = merge_dict
-            if mode == 0:
-                self.open_browse_file_window(current_header)
-            else:
-                self.file_unzip_func(current_header, unzip_mode)
+            current_read_unit = len(
+                current_key.encrypt(b'a' * current_header.read_unit))
+            current_thread = threading.Thread(
+                target=self.update_header,
+                args=(current_header, current_key, current_read_unit, mode,
+                      unzip_mode))
+            current_thread.start()
+
         else:
-            self.msg.configure(text='incorrect password')
+            self.show('incorrect password')
 
     def verify_key(self, password, salt, read_unit, kdf_iterations,
                    merge_dict):
@@ -764,7 +866,5 @@ if __name__ == '__main__':
         if os.path.splitext(current_file)[1][1:].lower() == 'fmt':
             root.import_task(current_file)
         else:
-            root.unzip_file_name = current_file
-            root.msg.configure(text=f'choose file {root.unzip_file_name}')
-            root.after(100, root.browse_files_func)
+            root.choose_unzip_file_name(current_file, outer=True)
     root.mainloop()
