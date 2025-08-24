@@ -77,15 +77,19 @@ def get_unzip_ind(current_dict):
 
 
 def get_unzip_file(current_dict):
-    result = []
+    result_files = []
+    result_folders = []
     for each in current_dict:
         current = current_dict[each]
         if type(current) == list:
+            result_folders.append(each)
             for i in current:
-                result += get_unzip_file(i)
+                each_result_files, each_result_folders = get_unzip_file(i)
+                result_files += each_result_files
+                result_folders += each_result_folders
         else:
-            result.append(each)
-    return result
+            result_files.append(each)
+    return result_files, result_folders
 
 
 class header:
@@ -329,7 +333,7 @@ class Root(Tk):
             text='Click to choose files and folders you want to unzip')
         self.browse_file_msg.place(x=0, y=20)
         current_dict = current_header.merge_dict
-        filenames = get_unzip_file(current_dict)
+        filenames, folders = get_unzip_file(current_dict)
         for each in range(len(filenames)):
             current_filename = filenames[each]
             self.browse_filenames.append(current_filename)
@@ -497,17 +501,20 @@ class Root(Tk):
                         if result is not None:
                             return result
 
-    def find_path_filenames(self, path, current_dict, unzip_filenames):
-        for key, value in current_dict.items():
-            if isinstance(value, list):
-                current_dir = os.path.join(path, os.path.split(key)[1])
-                os.makedirs(current_dir, exist_ok=True)
-                for each in value:
-                    self.find_path_filenames(current_dir, each,
+    def find_path_filenames(self, current_path, current_file_list,
+                            unzip_filenames):
+        for each in current_file_list:
+            for key, value in each.items():
+                if isinstance(value, list):
+                    current_dir = os.path.join(current_path,
+                                               os.path.split(key)[1])
+                    os.makedirs(current_dir, exist_ok=True)
+                    self.find_path_filenames(current_dir, value,
                                              unzip_filenames)
-            else:
-                current_filename = os.path.join(path, os.path.split(key)[1])
-                unzip_filenames.append(current_filename)
+                else:
+                    current_filename = os.path.join(current_path,
+                                                    os.path.split(key)[1])
+                    unzip_filenames.append(current_filename)
 
     def file_unzip(self, mode=0):
         if not self.unzip_file_name:
@@ -568,7 +575,7 @@ class Root(Tk):
             current_dict = current_header.merge_dict
             current_dict_size = file.tell()
             unzip_ind = get_unzip_ind(current_dict)
-            filenames = get_unzip_file(current_dict)
+            filenames, folders = get_unzip_file(current_dict)
             if mode == 0:
                 self.build_folders(current_dict)
                 length = get_len(current_dict)
@@ -606,20 +613,20 @@ class Root(Tk):
                 for i in self.current_selected_files:
                     if i in filenames:
                         select_file_ind.append(filenames.index(i))
-                        current_filename = os.path.split(i)[1]
-                        unzip_filenames.append(current_filename)
-                    else:
-                        current_dir = os.path.split(i)[1]
+                        current_filename_only = os.path.split(i)[1]
+                        unzip_filenames.append(current_filename_only)
+                    elif i in folders:
                         current_inds = [
                             k for k in range(len(filenames))
                             if os.path.split(filenames[k])[0].startswith(i)
                         ]
                         select_file_ind.extend(current_inds)
-                        current_dir = os.path.split(i)[1]
-                        os.makedirs(current_dir, exist_ok=True)
+                        current_folder_only = os.path.split(i)[1]
+                        os.makedirs(current_folder_only, exist_ok=True)
                         current_file_path_dict = self.find_file_path_dict(
                             i, current_dict)
-                        self.find_path_filenames('', current_file_path_dict,
+                        self.find_path_filenames(current_folder_only,
+                                                 current_file_path_dict[i],
                                                  unzip_filenames)
                 select_file_range = [(sum(unzip_ind[:i]),
                                       sum(unzip_ind[:i + 1]))
@@ -694,7 +701,7 @@ class Root(Tk):
         self.set_password_entry.place(x=20, y=20)
         self.set_password_label = ttk.Label(self.set_password_window,
                                             text='enter password here')
-        self.set_password_label.place(x=215, y=20)
+        self.set_password_label.place(x=180, y=20)
         self.set_password_func_button = ttk.Button(
             self.set_password_window,
             text='set password',
@@ -728,7 +735,7 @@ class Root(Tk):
         self.ask_password_entry.place(x=20, y=20)
         self.ask_password_label = ttk.Label(self.ask_password_window,
                                             text='enter password here')
-        self.ask_password_label.place(x=215, y=20)
+        self.ask_password_label.place(x=180, y=20)
         self.ask_password_func_button = ttk.Button(
             self.ask_password_window,
             text='try password',
