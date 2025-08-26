@@ -1,4 +1,3 @@
-import gzip
 import threading
 
 original_drc = os.getcwd()
@@ -17,8 +16,6 @@ elif read_unit.endswith('MB'):
 elif read_unit.endswith('GB'):
     read_unit_num = int(read_unit.split('GB')[0])
     read_unit = read_unit_num * (1024**3)
-
-compresslevel = current_settings['compresslevel']
 
 
 def normal_path(path):
@@ -179,12 +176,6 @@ class Root(Tk):
                                                text='direct merge',
                                                variable=self.is_direct_merge)
         self.direct_merge_button.place(x=700, y=20)
-        self.is_compress = BooleanVar()
-        self.is_compress.set(False)
-        self.compress_button = Checkbutton(self,
-                                           text='compress',
-                                           variable=self.is_compress)
-        self.compress_button.place(x=700, y=50)
         self.current_header = header()
         self.current_unzip_header = None
         self.browse_file_window = None
@@ -280,8 +271,7 @@ class Root(Tk):
             self.show('No file is selected to unzip')
             return
         if not self.already_get_header:
-            with (open(self.unzip_file_name, 'rb') if not self.current_is_zip
-                  else gzip.open(self.unzip_file_name, 'rb')) as file:
+            with open(self.unzip_file_name, 'rb') as file:
                 try:
                     self.current_unzip_header = pickle.load(file)
                 except:
@@ -419,9 +409,7 @@ class Root(Tk):
         counter = 1
         file_num = len(self.filenames)
         current_encrypt = False
-        with (open(merged_name, 'wb')
-              if not self.is_compress.get() else gzip.open(
-                  merged_name, 'wb', compresslevel=compresslevel)) as file:
+        with open(merged_name, 'wb') as file:
             if not self.is_direct_merge.get():
                 if self.current_header.has_password:
                     current_encrypt = True
@@ -471,13 +459,6 @@ class Root(Tk):
             self.current_merge_dict_update = False
             self.already_get_header = False
             self.current_unzip_header = None
-            self.current_is_zip = False
-            with gzip.open(self.unzip_file_name, 'rb') as f:
-                try:
-                    f.read(1)
-                    self.current_is_zip = True
-                except OSError:
-                    pass
             self.show(f'choose file {self.unzip_file_name}')
             if outer:
                 self.browse_files_func()
@@ -528,8 +509,7 @@ class Root(Tk):
             if not self.current_selected_files:
                 return
         if not self.already_get_header:
-            with (open(self.unzip_file_name, 'rb') if not self.current_is_zip
-                  else gzip.open(self.unzip_file_name, 'rb')) as file:
+            with open(self.unzip_file_name, 'rb') as file:
                 try:
                     self.current_unzip_header = pickle.load(file)
                 except:
@@ -565,8 +545,7 @@ class Root(Tk):
 
     def file_unzip_func_helper(self, current_header, current_key,
                                current_read_unit, mode, unzip_path):
-        with (open(self.unzip_file_name, 'rb') if not self.current_is_zip else
-              gzip.open(self.unzip_file_name, 'rb')) as file:
+        with open(self.unzip_file_name, 'rb') as file:
             try:
                 current_file_header = pickle.load(file)
             except:

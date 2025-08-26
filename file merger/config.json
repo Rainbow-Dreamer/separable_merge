@@ -1,5 +1,4 @@
 {
     "read_unit": "16KB",
-    "kdf_iterations": 390000,
-    "compresslevel": 9
+    "kdf_iterations": 390000
 }
